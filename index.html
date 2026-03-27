@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GemRogue: Überstunden bis zum Endboss</title>
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-dark:     #e8ecf1;
+      --bg-mid:      #f5f7fa;
+      --bg-card:     #ffffff;
+      --bg-hover:    #ebf0f8;
+      --border:      #c9d3df;
+      --text:        #2d3748;
+      --text-muted:  #718096;
+      --text-bright: #1a202c;
+      --accent-blue: #2b6cb0;
+      --accent-green:#276749;
+      --accent-red:  #c53030;
+      --accent-gold: #b7791f;
+      --accent-pink: #97266d;
+      --accent-purple:#6b46c1;
+      --font-mono:   'Courier New', monospace;
+      --radius:      8px;
+      --shadow:      0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-dark);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Loading Screen ───────────────────────────────────────────────────── */
+    #loading-screen {
+      position: fixed; inset: 0;
+      background: #2b6cb0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.4s ease;
+    }
+    .loading-logo {
+      font-size: 2.5rem; font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -1px;
+    }
+    .loading-sub {
+      color: rgba(255,255,255,0.75);
+      margin-top: 8px;
+      font-size: 0.9rem;
+    }
+    .loading-bar-wrap {
+      margin-top: 32px;
+      width: 200px; height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .loading-bar {
+      height: 100%; width: 0;
+      background: var(--accent-blue);
+      border-radius: 2px;
+      animation: loadbar 0.8s ease forwards;
+    }
+    @keyframes loadbar {
+      to { width: 100%; }
+    }
+
+    /* ── Game Root ────────────────────────────────────────────────────────── */
+    #app {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #game-root {
+      width: 100%;
+      max-width: 900px;
+      min-height: 100vh;
+      padding: 16px;
+      display: flex; flex-direction: column;
+    }
+
+    /* ── Title Screen ─────────────────────────────────────────────────────── */
+    .title-screen {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 100vh;
+      gap: 32px;
+      text-align: center;
+    }
+    .title-logo { line-height: 1; }
+    .title-main {
+      font-size: 4rem; font-weight: 900;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -2px;
+    }
+    .title-sub {
+      font-size: 1.1rem; color: var(--text-muted);
+      margin-top: 4px; font-style: italic;
+    }
+    .title-tagline {
+      max-width: 480px;
+      color: var(--text);
+      line-height: 1.8;
+    }
+    .title-tagline em { color: var(--text-muted); }
+    .title-buttons { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+    .title-btn {
+      padding: 14px 32px;
+      border-radius: var(--radius);
+      border: none; cursor: pointer;
+      font-size: 1rem; font-weight: 700;
+      transition: all 0.15s ease;
+    }
+    .title-btn.primary {
+      background: var(--accent-blue);
+      color: white;
+    }
+    .title-btn.primary:hover { background: #2563eb; transform: translateY(-2px); }
+    .title-btn.secondary {
+      background: var(--bg-card);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .title-btn.secondary:hover { background: var(--bg-hover); }
+    .title-floor-preview { color: var(--text-muted); font-size: 0.85rem; }
+
+    /* ── Map Screen ───────────────────────────────────────────────────────── */
+    .map-wrapper {
+      display: flex; flex-direction: column; gap: 16px;
+      padding: 16px 0;
+    }
+    .map-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--border);
+    }
+    .floor-title { display: flex; align-items: baseline; gap: 12px; }
+    .floor-num { font-size: 1.4rem; font-weight: 800; color: var(--text-bright); }
+    .floor-dept { font-size: 1rem; font-weight: 600; }
+    .player-status {
+      display: flex; gap: 16px;
+      font-size: 1rem; font-weight: 600;
+    }
+    .hp-display { color: #ef4444; }
+    .gold-display { color: var(--accent-gold); }
+
+    .rooms-container {
+      display: flex; gap: 12px;
+      flex-wrap: wrap;
+    }
+    .room-card {
+      flex: 1; min-width: 100px;
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 10px;
+      text-align: center;
+      position: relative;
+      transition: all 0.15s ease;
+    }
+    .room-card.available {
+      border-color: var(--accent-blue);
+      cursor: pointer;
+    }
+    .room-card.available:hover {
+      background: var(--bg-hover);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+    }
+    .room-card.cleared {
+      border-color: var(--accent-green);
+      opacity: 0.7;
+    }
+    .room-card.locked { opacity: 0.4; cursor: not-allowed; }
+    .room-card.current { border-color: var(--accent-gold); }
+    .room-card.boss-room { border-color: #ef4444; }
+    .room-card.elite-room { border-color: var(--accent-purple); }
+    .room-icon { font-size: 1.8rem; display: block; margin-bottom: 6px; }
+    .room-label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .room-monster { font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cleared-badge {
+      position: absolute; top: 6px; right: 8px;
+      color: var(--accent-green); font-size: 1rem; font-weight: 700;
+    }
+    .boss-warning {
+      font-size: 0.7rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 1px;
+      margin-top: 4px;
+    }
+
+    /* ── Character Equipment Screen (Diablo-style paper doll) ─────────────── */
+    .inventory-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+
+    /* Two-column layout: doll left, backpack right */
+    .char-screen {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-top: 10px;
+    }
+
+    /* ── Paper Doll container ── */
+    .char-doll {
+      position: relative;
+      width: 280px;
+      height: 380px;
+      flex-shrink: 0;
+      background: linear-gradient(160deg, #f0f4fa 0%, #e8ecf4 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      /* subtle grid lines like a corporate org chart background */
+      background-image:
+        linear-gradient(rgba(180,195,220,0.18) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(180,195,220,0.18) 1px, transparent 1px),
+        linear-gradient(160deg, #f0f4fa 0%, #e8ecf4 100%);
+      background-size: 24px 24px, 24px 24px, 100% 100%;
+    }
+
+    /* Silhouette figure in the center */
+    .char-silhouette {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 5rem;
+      line-height: 1;
+      pointer-events: none;
+      user-select: none;
+      opacity: 0.18;
+      filter: grayscale(1);
+    }
+
+    /* Employee ID card label overlay */
+    .char-id-label {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, 70px);
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 10px;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      pointer-events: none;
+      white-space: nowrap;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    /* ── Individual Equipment Slot ── */
+    .equip-slot {
+      position: absolute;
+      width: 80px;
+      height: 70px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      text-align: center;
+      font-size: 0.62rem;
+      cursor: default;
+      transition: box-shadow 0.15s, border-color 0.15s, background 0.15s;
+      padding: 4px 3px;
+      gap: 2px;
+      z-index: 2;
+    }
+
+    .equip-slot.empty {
+      background: rgba(255,255,255,0.55);
+      border: 2px dashed var(--border);
+      color: var(--text-muted);
+    }
+
+    .equip-slot.filled {
+      background: rgba(255,255,255,0.92);
+      border: 2px solid var(--accent-blue);
+      color: var(--text);
+      box-shadow: 0 0 0 3px rgba(43,108,176,0.13), 0 2px 8px rgba(43,108,176,0.12);
+    }
+
+    .equip-slot.filled:hover {
+      box-shadow: 0 0 0 4px rgba(43,108,176,0.22), 0 4px 14px rgba(43,108,176,0.18);
+      background: rgba(235,240,255,0.98);
+    }
+
+    .equip-slot-icon {
+      font-size: 1.5rem;
+      line-height: 1;
+      display: block;
+    }
+
+    .equip-slot-label {
+      font-size: 0.58rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      display: block;
+    }
+
+    .equip-slot-name {
+      font-size: 0.6rem;
+      font-weight: 600;
+      color: var(--accent-blue);
+      display: block;
+      max-width: 74px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+    }
+
+    /* Slot positions */
+    .equip-slot[data-slot="helm"]    { top: 2%;  left: 50%; transform: translateX(-50%); }
+    .equip-slot[data-slot="weapon"]  { top: 30%; left: 2%; }
+    .equip-slot[data-slot="offhand"] { top: 30%; right: 2%; }
+    .equip-slot[data-slot="armor"]   { top: 38%; left: 50%; transform: translateX(-50%); }
+    .equip-slot[data-slot="gloves"]  { top: 62%; left: 2%; }
+    .equip-slot[data-slot="shoes"]   { top: 62%; right: 2%; }
+    .equip-slot[data-slot="amulet"]  { top: 72%; left: 50%; transform: translateX(-50%); }
+    .equip-slot[data-slot="ring1"]   { bottom: 4%; left: 18%; transform: translateX(-50%); }
+    .equip-slot[data-slot="ring2"]   { bottom: 4%; right: 18%; transform: translateX(50%); }
+
+    /* ── Backpack / unequipped item list ── */
+    .char-backpack {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+
+    .char-backpack-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .backpack-item {
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 7px 9px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 0.7rem;
+    }
+
+    .backpack-item-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .backpack-item-slot {
+      font-size: 0.58rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent-blue);
+      background: rgba(43,108,176,0.08);
+      border-radius: 3px;
+      padding: 1px 5px;
+    }
+
+    .backpack-item-desc {
+      color: var(--text-muted);
+      font-size: 0.64rem;
+      line-height: 1.35;
+    }
+
+    .backpack-empty {
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-style: italic;
+      padding: 10px 0;
+      text-align: center;
+    }
+
+    .gems-summary { margin-top: 10px; }
+    .manage-gems-btn {
+      margin-top: 6px;
+      padding: 6px 12px;
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      cursor: pointer; font-size: 0.8rem;
+      transition: background 0.1s;
+    }
+    .manage-gems-btn:hover { background: var(--bg-hover); }
+
+    /* ── Skill Slots Panel ────────────────────────────────────────────────── */
+    .skill-slots-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+    .skill-slot-display {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .skill-slot-display:last-child { border-bottom: none; }
+    .slot-num { font-size: 0.7rem; color: var(--text-muted); font-weight: 700; min-width: 50px; }
+    .slot-active { background: var(--accent-blue); color: white; padding: 2px 8px; border-radius: 3px; font-size: 0.75rem; font-weight: 600; }
+    .slot-empty { color: var(--text-muted); font-size: 0.75rem; }
+    .slot-support { background: #10b98133; color: var(--accent-green); padding: 2px 6px; border-radius: 3px; font-size: 0.7rem; }
+    .slot-trigger { background: #f59e0b22; color: var(--accent-gold); padding: 2px 6px; border-radius: 3px; font-size: 0.7rem; }
+
+    /* ── Section Titles ───────────────────────────────────────────────────── */
+    .section-title {
+      font-size: 0.75rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px;
+      color: var(--text-muted); margin-bottom: 8px;
+    }
+
+    /* ── Combat Screen ────────────────────────────────────────────────────── */
+    .combat-wrapper {
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .enemy-panel {
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .enemy-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 10px;
+    }
+    .enemy-icon { font-size: 2rem; line-height: 1; }
+    .enemy-name { font-size: 1.2rem; font-weight: 700; }
+    .skill-gem-icon { font-size: 1.3rem; line-height: 1; flex-shrink: 0; }
+    .boss-badge {
+      background: #ef4444; color: white;
+      padding: 2px 8px; border-radius: 3px;
+      font-size: 0.7rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .enemy-dept { font-size: 0.75rem; color: var(--text-muted); margin-left: auto; }
+    .hp-bar-container {
+      position: relative;
+      background: var(--bg-mid);
+      border-radius: 4px;
+      height: 20px; overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .hp-bar {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+      background: var(--accent-green);
+    }
+    .player-hp-bar { background: #3b82f6; }
+    .hp-text {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 0.75rem; font-weight: 700;
+      color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    }
+    .special-ability {
+      font-size: 0.75rem; color: var(--accent-gold);
+      padding: 4px 8px;
+      background: #f59e0b11;
+      border-radius: 4px;
+      margin: 8px 0;
+    }
+    .enemy-tags { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+    .tag {
+      padding: 2px 8px; border-radius: 3px;
+      font-size: 0.7rem; font-weight: 600;
+    }
+    .tag.weakness { background: #ef444422; color: #ef4444; }
+    .tag.resist   { background: #3b82f622; color: #3b82f6; }
+    .tag.immune   { background: #6b728022; color: #6b7280; }
+    .enemy-flavor {
+      font-size: 0.75rem; color: var(--text-muted);
+      font-style: italic; margin-top: 6px;
+    }
+
+    .player-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+    .player-header {
+      display: flex; justify-content: space-between;
+      font-size: 0.85rem; font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .combat-log {
+      background: #1e2535;
+      border: 1px solid #374151;
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      max-height: 180px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: #c8d6e5;
+    }
+    .log-line {
+      padding: 2px 0;
+      border-bottom: 1px solid #ffffff0a;
+    }
+    .log-line:last-child { border-bottom: none; color: #e2f0fb; }
+
+    .combat-skills {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .skills-title {
+      font-size: 0.8rem; font-weight: 700;
+      color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .skill-btn {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px;
+      background: var(--bg-card);
+      border: 2px solid var(--accent-blue);
+      border-radius: var(--radius);
+      color: var(--text);
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s ease;
+      flex-wrap: wrap;
+    }
+    .skill-btn:hover {
+      background: var(--bg-hover);
+      border-color: #60a5fa;
+      transform: translateX(4px);
+    }
+    .skill-name { font-weight: 700; font-size: 0.95rem; flex: 1; }
+    .skill-tags { font-size: 0.72rem; color: var(--accent-purple); background: #8b5cf622; padding: 2px 6px; border-radius: 3px; }
+    .skill-supports { font-size: 0.7rem; color: var(--accent-green); }
+    .skill-trigger { font-size: 0.7rem; color: var(--accent-gold); }
+    .skill-dmg { font-size: 0.75rem; color: var(--text-muted); margin-left: auto; }
+
+    .escape-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.1s;
+      align-self: flex-start;
+    }
+    .escape-btn:hover { border-color: var(--text-muted); color: var(--text); }
+
+    .auto-click-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      cursor: pointer; font-size: 0.85rem;
+      transition: all 0.15s;
+      align-self: flex-start;
+    }
+    .auto-click-btn:hover { border-color: var(--accent-green); color: var(--accent-green); }
+    .auto-click-btn.auto-click-on {
+      background: var(--accent-green);
+      border-color: var(--accent-green);
+      color: #fff; font-weight: 600;
+    }
+
+    .combat-result {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+    }
+    .victory-msg { font-size: 1.4rem; font-weight: 800; color: var(--accent-green); margin-bottom: 12px; }
+    .defeat-msg  { font-size: 1.4rem; font-weight: 800; color: var(--accent-red); margin-bottom: 12px; }
+
+    .enemy-turn-indicator {
+      text-align: center; padding: 12px;
+      color: var(--accent-pink); font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .round-info {
+      text-align: right; font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Loot Screen ──────────────────────────────────────────────────────── */
+    .loot-wrapper {
+      display: flex; flex-direction: column; gap: 14px;
+      padding: 16px 0;
+    }
+    .loot-title {
+      font-size: 1.5rem; font-weight: 800;
+      color: var(--accent-gold);
+    }
+    .loot-message {
+      padding: 10px 14px;
+      background: var(--bg-card);
+      border-left: 3px solid var(--accent-gold);
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    .loot-gold {
+      font-size: 1.1rem; font-weight: 700;
+      color: var(--accent-gold);
+    }
+    .loot-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .fusion-section {
+      border-color: var(--accent-purple);
+    }
+
+    /* ── Gem Cards ────────────────────────────────────────────────────────── */
+    .gem-card {
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+    .gem-card.gem-active  { border-left: 3px solid var(--accent-blue); }
+    .gem-card.gem-support { border-left: 3px solid var(--accent-green); }
+    .gem-card.gem-trigger { border-left: 3px solid var(--accent-gold); }
+    .gem-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .gem-name { font-weight: 700; font-size: 0.95rem; flex: 1; }
+    .gem-level {
+      font-size: 0.72rem; padding: 2px 6px;
+      background: var(--bg-card); border-radius: 3px;
+      color: var(--text-muted); font-weight: 700;
+    }
+    .gem-badge {
+      font-size: 0.65rem; padding: 2px 6px;
+      border-radius: 3px; font-weight: 800; text-transform: uppercase;
+    }
+    .gem-badge.gem-active  { background: #3b82f622; color: #3b82f6; }
+    .gem-badge.gem-support { background: #10b98122; color: #10b981; }
+    .gem-badge.gem-trigger { background: #f59e0b22; color: #f59e0b; }
+    .gem-desc { font-size: 0.8rem; color: var(--text); margin-bottom: 4px; }
+    .gem-tags { font-size: 0.72rem; color: var(--accent-purple); }
+    .gem-flavor { font-size: 0.72rem; color: var(--text-muted); font-style: italic; margin-top: 4px; }
+
+    /* ── Item Cards ───────────────────────────────────────────────────────── */
+    .item-card {
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+    .item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .item-name { font-weight: 700; font-size: 0.95rem; }
+    .item-slot {
+      font-size: 0.65rem; padding: 2px 6px;
+      background: var(--bg-card); border-radius: 3px;
+      color: var(--text-muted); font-weight: 700; text-transform: uppercase;
+    }
+    .item-stats { font-size: 0.8rem; color: var(--accent-green); margin-bottom: 4px; }
+    .item-flavor { font-size: 0.72rem; color: var(--text-muted); font-style: italic; }
+
+    /* ── Buttons ──────────────────────────────────────────────────────────── */
+    .take-btn, .buy-btn {
+      margin-top: 8px;
+      padding: 7px 14px;
+      background: var(--accent-blue);
+      color: white; border: none;
+      border-radius: 4px; cursor: pointer;
+      font-size: 0.82rem; font-weight: 600;
+      transition: background 0.1s;
+    }
+    .take-btn:hover  { background: #2563eb; }
+    .buy-btn:hover   { background: #2563eb; }
+    .buy-btn:disabled { background: var(--bg-mid); color: var(--text-muted); cursor: not-allowed; }
+
+    .bought-btn {
+      margin-top: 8px;
+      padding: 7px 14px;
+      background: var(--bg-mid);
+      color: var(--text-muted); border: 1px solid var(--border);
+      border-radius: 4px; cursor: not-allowed;
+      font-size: 0.82rem;
+    }
+
+    .fusion-btn {
+      padding: 8px 14px;
+      background: #8b5cf622;
+      color: var(--accent-purple);
+      border: 1px solid var(--accent-purple);
+      border-radius: 4px; cursor: pointer;
+      font-size: 0.82rem; font-weight: 600;
+      transition: all 0.1s;
+    }
+    .fusion-btn:hover { background: #8b5cf633; }
+
+    .continue-btn {
+      padding: 10px 20px;
+      background: var(--accent-blue);
+      color: white; border: none;
+      border-radius: var(--radius);
+      cursor: pointer; font-size: 0.9rem; font-weight: 700;
+      transition: background 0.1s;
+    }
+    .continue-btn:hover { background: #2563eb; }
+    .continue-btn.big-btn { padding: 14px 28px; font-size: 1rem; margin-top: 8px; }
+
+    .gameover-btn {
+      padding: 10px 20px;
+      background: var(--accent-red);
+      color: white; border: none;
+      border-radius: var(--radius);
+      cursor: pointer; font-size: 0.9rem; font-weight: 700;
+    }
+
+    .skip-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      cursor: pointer; font-size: 0.85rem;
+      margin-top: 8px;
+      transition: all 0.1s;
+    }
+    .skip-btn:hover { border-color: var(--text-muted); color: var(--text); }
+
+    .slot-assign-btn {
+      padding: 4px 8px;
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text-muted);
+      cursor: pointer; font-size: 0.72rem;
+      transition: all 0.1s;
+    }
+    .slot-assign-btn:hover { border-color: var(--accent-blue); color: var(--text); }
+
+    /* ── Shop Screen ──────────────────────────────────────────────────────── */
+    .shop-wrapper {
+      display: flex; flex-direction: column; gap: 14px;
+      padding: 16px 0;
+    }
+    .shop-title { font-size: 1.5rem; font-weight: 800; color: var(--accent-gold); }
+    .shop-subtitle { color: var(--text-muted); font-size: 0.9rem; }
+    .shop-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    /* ── Rest Screen ──────────────────────────────────────────────────────── */
+    .rest-wrapper {
+      display: flex; flex-direction: column; gap: 14px;
+      padding: 16px 0;
+      max-width: 600px;
+    }
+    .rest-title { font-size: 1.5rem; font-weight: 800; color: var(--accent-green); }
+    .rest-text { color: var(--text); line-height: 1.7; }
+    .rest-heal {
+      padding: 12px 16px;
+      background: #10b98122;
+      border-left: 3px solid var(--accent-green);
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    /* ── Printer Screen ───────────────────────────────────────────────────── */
+    .printer-wrapper {
+      display: flex; flex-direction: column; gap: 14px;
+      padding: 16px 0;
+      max-width: 500px;
+    }
+    .printer-title { font-size: 1.5rem; font-weight: 800; color: var(--accent-purple); }
+    .printer-text { color: var(--text); line-height: 1.7; }
+
+    /* ── Game Over Screen ─────────────────────────────────────────────────── */
+    .gameover-wrapper {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 80vh;
+      text-align: center;
+    }
+    .gameover-content { max-width: 500px; }
+    .gameover-title {
+      font-size: 2.5rem; font-weight: 900;
+      color: var(--accent-red); margin-bottom: 16px;
+    }
+    .gameover-text { color: var(--text); line-height: 1.8; margin-bottom: 24px; }
+    .gameover-stats {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px; margin-bottom: 24px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+
+    /* ── Victory Screen ───────────────────────────────────────────────────── */
+    .victory-wrapper {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 80vh;
+      text-align: center;
+    }
+    .victory-content { max-width: 560px; }
+    .victory-title {
+      font-size: 2.5rem; font-weight: 900;
+      color: var(--accent-gold); margin-bottom: 16px;
+    }
+    .victory-text { color: var(--text); line-height: 1.8; margin-bottom: 12px; }
+    .victory-subtext { color: var(--text-muted); font-style: italic; margin-bottom: 24px; }
+    .victory-stats {
+      background: var(--bg-card);
+      border: 1px solid var(--accent-gold);
+      border-radius: var(--radius);
+      padding: 16px; margin-bottom: 24px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    /* ── Gem Manager Overlay ──────────────────────────────────────────────── */
+    .gem-manager-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 100; padding: 16px;
+      overflow-y: auto;
+    }
+    .gem-manager-dnd {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      width: 100%; max-width: 720px;
+      max-height: 90vh; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    /* ── Slot rows ─────────────────────────────────────────────────── */
+    .dnd-slots-section { display: flex; flex-direction: column; gap: 10px; }
+    .dnd-slot-row {
+      display: flex; align-items: center; gap: 8px;
+      flex-wrap: wrap;
+      padding: 10px;
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .dnd-slot-label {
+      font-size: 0.7rem; font-weight: 700;
+      color: var(--text-muted); text-transform: uppercase;
+      width: 44px; flex-shrink: 0;
+    }
+    .dnd-supports-wrap { display: flex; gap: 6px; }
+
+    /* ── Drop zones ────────────────────────────────────────────────── */
+    .dnd-drop-zone {
+      min-width: 90px; min-height: 56px;
+      border: 2px dashed var(--border);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.15s, background 0.15s;
+      position: relative; overflow: hidden;
+    }
+    .dnd-drop-zone.empty { cursor: default; }
+    .dnd-drop-zone.filled { border-style: solid; padding: 2px; }
+    .dnd-zone-active  { border-color: #2b6cb0; }
+    .dnd-zone-support { border-color: #b7791f; }
+    .dnd-zone-trigger { border-color: #6b46c1; }
+    .dnd-drop-zone.drag-over  { background: rgba(43,108,176,0.15); border-color: var(--accent-blue); border-style: solid; }
+    .dnd-drop-zone.drag-reject { background: rgba(197,48,48,0.1); border-color: var(--accent-red); }
+    .dnd-placeholder {
+      font-size: 0.65rem; color: var(--text-muted);
+      text-align: center; padding: 4px; pointer-events: none;
+    }
+
+    /* ── Draggable gem cards ────────────────────────────────────────── */
+    .dnd-gem {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 2px; padding: 6px 8px;
+      border-radius: 5px; cursor: grab;
+      user-select: none; width: 100%;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .dnd-gem:hover { transform: scale(1.03); }
+    .dnd-gem.dragging { opacity: 0.4; cursor: grabbing; }
+    .dnd-gem-icon { font-size: 1.4rem; line-height: 1; }
+    .dnd-gem-name { font-size: 0.65rem; font-weight: 600; text-align: center; color: var(--text-bright); }
+    .dnd-gem-meta { font-size: 0.6rem; color: var(--text-muted); }
+    .gem-role-active  .dnd-gem-icon { filter: drop-shadow(0 0 4px #2b6cb0); }
+    .gem-role-support .dnd-gem-icon { filter: drop-shadow(0 0 4px #b7791f); }
+    .gem-role-trigger .dnd-gem-icon { filter: drop-shadow(0 0 4px #6b46c1); }
+
+    /* ── Inventory grid ─────────────────────────────────────────────── */
+    .dnd-inventory-section {
+      border-top: 1px solid var(--border); padding-top: 12px;
+    }
+    .dnd-inventory-grid {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;
+    }
+    .dnd-inventory-grid .dnd-gem {
+      width: 80px; background: var(--bg-mid);
+      border: 1px solid var(--border); border-radius: 6px;
+    }
+    .dnd-inventory-grid .gem-role-active  { border-color: #2b6cb0; }
+    .dnd-inventory-grid .gem-role-support { border-color: #b7791f; }
+    .dnd-inventory-grid .gem-role-trigger { border-color: #6b46c1; }
+    .dnd-inventory-empty { color: var(--text-muted); font-size: 0.85rem; padding: 8px 0; }
+    .dnd-hint { font-size: 0.72rem; color: var(--text-muted); font-style: italic; }
+
+    .close-btn {
+      margin-top: 16px;
+      padding: 8px 16px;
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      cursor: pointer; font-size: 0.85rem;
+    }
+    .close-btn:hover { background: var(--bg-hover); }
+
+    /* ── Scrollbar ────────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-mid); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3e4268; }
+
+    /* ── Cooldown Bars ────────────────────────────────────────────────────── */
+    .skill-slot-cooldown {
+      height: 6px;
+      background: #1a1a2e;
+      border-radius: 3px;
+      margin-top: 4px;
+      overflow: hidden;
+    }
+    .skill-slot-cooldown-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4fc3f7, #00e5ff);
+      transition: width 0.1s linear;
+      border-radius: 3px;
+    }
+    .skill-slot-cooldown-fill.ready {
+      background: linear-gradient(90deg, #66bb6a, #a5d6a7);
+    }
+    .skill-btn-content {
+      display: flex; align-items: center; gap: 10px;
+      flex-wrap: wrap; width: 100%;
+    }
+    /* Cooldown bar turns green when ready — no border flash */
+    .skill-slot-cooldown-fill.ready {
+      background: linear-gradient(90deg, #276749, #48bb78) !important;
+    }
+    .enemy-attack-timer {
+      display: flex; align-items: center; gap: 8px;
+      margin: 6px 0;
+    }
+    .attack-timer-label {
+      font-size: 0.7rem; color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .enemy-attack-timer .skill-slot-cooldown {
+      flex: 1; margin-top: 0;
+    }
+
+    /* ── Meta Screen / Karriereberatung ───────────────────────────────────── */
+    .meta-screen {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .meta-header {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .meta-title {
+      font-size: 2rem; font-weight: 900;
+      color: var(--text-bright);
+    }
+    .meta-subtitle {
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .meta-currency {
+      font-size: 2em;
+      color: #ffd700;
+      text-align: center;
+      margin: 20px 0 8px;
+      font-weight: 800;
+    }
+    .meta-stats {
+      display: flex; gap: 20px; justify-content: center;
+      color: var(--text-muted); font-size: 0.85rem;
+      margin-bottom: 20px;
+    }
+    .meta-upgrades-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .meta-upgrade-card {
+      background: #1e2130;
+      border: 1px solid #2a2f45;
+      border-radius: 8px;
+      padding: 16px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .meta-upgrade-card.maxed {
+      border-color: #ffd700;
+      opacity: 0.7;
+    }
+    .meta-upgrade-name {
+      font-weight: 700; font-size: 0.95rem;
+      color: var(--text-bright);
+    }
+    .meta-upgrade-level-dots {
+      display: flex;
+      gap: 4px;
+      margin: 4px 0;
+    }
+    .meta-upgrade-level-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #2a2f45;
+    }
+    .meta-upgrade-level-dot.filled {
+      background: #ffd700;
+    }
+    .meta-upgrade-desc {
+      font-size: 0.82rem; color: var(--text);
+    }
+    .meta-upgrade-flavor {
+      font-size: 0.75rem; color: var(--text-muted);
+      font-style: italic;
+    }
+    .meta-upgrade-cost {
+      font-size: 0.8rem; color: #ffd700;
+      font-weight: 600;
+    }
+    .meta-upgrade-maxed-badge {
+      font-size: 0.75rem; font-weight: 800;
+      color: #ffd700; text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .meta-upgrade-btn {
+      margin-top: 4px;
+      padding: 7px 14px;
+      background: var(--accent-blue);
+      color: white; border: none;
+      border-radius: 4px; cursor: pointer;
+      font-size: 0.82rem; font-weight: 600;
+      transition: background 0.1s;
+    }
+    .meta-upgrade-btn:hover { background: #2563eb; }
+    .meta-upgrade-btn.disabled {
+      background: var(--bg-mid);
+      color: var(--text-muted);
+      cursor: not-allowed;
+    }
+    .meta-new-run-btn {
+      display: block; margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading-screen">
+    <div class="loading-logo">GemRogue</div>
+    <div class="loading-sub">Überstunden bis zum Endboss</div>
+    <div class="loading-bar-wrap">
+      <div class="loading-bar"></div>
+    </div>
+  </div>
+
+  <div id="app">
+    <div id="game-root"></div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
