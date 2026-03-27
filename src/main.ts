@@ -168,7 +168,8 @@ class GameManager {
       clearInterval(this.combatInterval);
       this.combatInterval = null;
     }
-    this.stopAutoClick();
+    // Auto-clicker is intentionally NOT stopped here — it persists between rooms.
+    // It guards itself with phase !== 'combat', so it won't fire outside combat.
   }
 
   private startAutoClick(intervalMs = 1000) {
@@ -211,6 +212,8 @@ class GameManager {
   }
 
   private endRun(won: boolean) {
+    this.stopAutoClick();
+    this.ui.setAutoClick(false);
     const finalHpPercent = (this.state.player.hp / this.state.player.maxHp) * 100;
     const earned = calculateBetriebsjahre(
       this.runFloorsCleared,
@@ -376,6 +379,8 @@ class GameManager {
 
   private newGame() {
     this.stopCombatLoop();
+    this.stopAutoClick();
+    this.ui.setAutoClick(false);
     deleteSave();
     this.floors = createFloors();
     let freshState = createNewGame();
