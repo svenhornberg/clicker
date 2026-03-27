@@ -96,6 +96,8 @@ class GameManager {
   private runFloorsCleared = 0;
   private runBossesDefeated = 0;
   private combatInterval: number | null = null;
+  private autoClickInterval: number | null = null;
+  private autoClickEnabled = false;
 
   constructor() {
     this.metaState = loadMeta() ?? createDefaultMetaState();
@@ -163,6 +165,31 @@ class GameManager {
       clearInterval(this.combatInterval);
       this.combatInterval = null;
     }
+    this.stopAutoClick();
+  }
+
+  private startAutoClick(intervalMs = 1000) {
+    if (this.autoClickInterval) clearInterval(this.autoClickInterval);
+    this.autoClickEnabled = true;
+    this.autoClickInterval = setInterval(() => {
+      if (!this.combatState || this.combatState.isOver || this.state.phase !== 'combat') return;
+      // Find all ready slots (cooldown = 0)
+      const readySlots = this.state.skillSlots
+        .map((slot, i) => ({ slot, i }))
+        .filter(({ slot, i }) => slot.active && (this.combatState!.slotCooldowns[i] ?? 0) === 0);
+      if (readySlots.length === 0) return;
+      // Pick a random ready slot
+      const pick = readySlots[Math.floor(Math.random() * readySlots.length)];
+      this.doPlayerAttackManual(pick.i);
+    }, intervalMs) as unknown as number;
+  }
+
+  private stopAutoClick() {
+    if (this.autoClickInterval) {
+      clearInterval(this.autoClickInterval);
+      this.autoClickInterval = null;
+    }
+    this.autoClickEnabled = false;
   }
 
   private handleCombatEnd() {
@@ -220,6 +247,15 @@ class GameManager {
 
       case 'enemy-turn':
         this.doEnemyTurn();
+        break;
+
+      case 'toggle-auto-click':
+        if (this.autoClickEnabled) {
+          this.stopAutoClick();
+        } else {
+          this.startAutoClick(1000);
+        }
+        this.ui.setAutoClick(this.autoClickEnabled);
         break;
 
       case 'escape':

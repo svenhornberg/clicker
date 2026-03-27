@@ -72,6 +72,17 @@ export class GameUI {
   private gameState: GameState;
   private onAction: (action: string, data?: unknown) => void;
   private currentFloors: ReturnType<typeof import('../data/floors').createFloors> | null = null;
+  private autoClickActive = false;
+
+  setAutoClick(active: boolean): void {
+    this.autoClickActive = active;
+    // Update the toggle button if it exists in DOM without full re-render
+    const btn = document.querySelector<HTMLButtonElement>('.auto-click-btn');
+    if (btn) {
+      btn.textContent = active ? '🤖 Auto: AN' : '🖱️ Auto: AUS';
+      btn.classList.toggle('auto-click-on', active);
+    }
+  }
 
   constructor(
     gameState: GameState,
@@ -306,6 +317,13 @@ export class GameUI {
       });
 
       // Escape option
+      // Auto-clicker toggle
+      const autoBtn = this.el('button', `auto-click-btn${this.autoClickActive ? ' auto-click-on' : ''}`);
+      autoBtn.textContent = this.autoClickActive ? '🤖 Auto: AN' : '🖱️ Auto: AUS';
+      autoBtn.title = 'Auto-Klicker: feuert alle 1s einen zufälligen Slot';
+      autoBtn.addEventListener('click', () => this.onAction('toggle-auto-click'));
+      skillsEl.appendChild(autoBtn);
+
       const escBtn = this.el('button', 'escape-btn');
       escBtn.textContent = '🏃 Fliehen';
       escBtn.addEventListener('click', () => this.onAction('escape'));

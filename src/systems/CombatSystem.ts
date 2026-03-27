@@ -291,19 +291,13 @@ export function tickCombat(
     slotMaxCooldowns: [...state.slotMaxCooldowns],
   };
 
-  // Decrement all cooldowns
+  // Decrement slot cooldowns (manual cooldown after use)
   for (let i = 0; i < s.slotCooldowns.length; i++) {
     s.slotCooldowns[i] = Math.max(0, s.slotCooldowns[i] - deltaMs);
   }
   s.enemyCooldown = Math.max(0, s.enemyCooldown - deltaMs);
 
-  // Fire each slot that is ready
-  for (let i = 0; i < s.slotCooldowns.length; i++) {
-    if (s.slotCooldowns[i] <= 0 && !s.isOver) {
-      s = fireSlot(i, s, gameState, metaState);
-      s.slotCooldowns[i] = s.slotMaxCooldowns[i];
-    }
-  }
+  // Slots do NOT auto-fire — player must click manually (or use auto-clicker)
 
   // Enemy attack
   if (s.enemyCooldown <= 0 && !s.isOver) {

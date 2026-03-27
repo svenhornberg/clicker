@@ -401,6 +401,23 @@
     }
     .escape-btn:hover { border-color: var(--text-muted); color: var(--text); }
 
+    .auto-click-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      cursor: pointer; font-size: 0.85rem;
+      transition: all 0.15s;
+      align-self: flex-start;
+    }
+    .auto-click-btn:hover { border-color: var(--accent-green); color: var(--accent-green); }
+    .auto-click-btn.auto-click-on {
+      background: var(--accent-green);
+      border-color: var(--accent-green);
+      color: #fff; font-weight: 600;
+    }
+
     .combat-result {
       background: var(--bg-card);
       border: 1px solid var(--border);
