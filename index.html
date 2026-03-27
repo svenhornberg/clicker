@@ -657,28 +657,93 @@
     /* ── Gem Manager Overlay ──────────────────────────────────────────────── */
     .gem-manager-overlay {
       position: fixed; inset: 0;
-      background: rgba(0,0,0,0.8);
+      background: rgba(0,0,0,0.75);
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      z-index: 100; padding: 20px;
+      z-index: 100; padding: 16px;
+      overflow-y: auto;
     }
-    .gem-manager {
+    .gem-manager-dnd {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 16px;
-      width: 100%; max-width: 600px;
-      max-height: 80vh; overflow-y: auto;
+      padding: 20px;
+      width: 100%; max-width: 720px;
+      max-height: 90vh; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 16px;
     }
-    .gem-manage-row {
+
+    /* ── Slot rows ─────────────────────────────────────────────────── */
+    .dnd-slots-section { display: flex; flex-direction: column; gap: 10px; }
+    .dnd-slot-row {
       display: flex; align-items: center; gap: 8px;
-      padding: 6px 0;
-      border-bottom: 1px solid var(--border);
       flex-wrap: wrap;
+      padding: 10px;
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
     }
-    .gem-manage-row:last-child { border-bottom: none; }
-    .gem-manage-name { flex: 1; font-size: 0.85rem; }
-    .gem-manage-val { font-size: 0.75rem; color: var(--text-muted); }
+    .dnd-slot-label {
+      font-size: 0.7rem; font-weight: 700;
+      color: var(--text-muted); text-transform: uppercase;
+      width: 44px; flex-shrink: 0;
+    }
+    .dnd-supports-wrap { display: flex; gap: 6px; }
+
+    /* ── Drop zones ────────────────────────────────────────────────── */
+    .dnd-drop-zone {
+      min-width: 90px; min-height: 56px;
+      border: 2px dashed var(--border);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.15s, background 0.15s;
+      position: relative; overflow: hidden;
+    }
+    .dnd-drop-zone.empty { cursor: default; }
+    .dnd-drop-zone.filled { border-style: solid; padding: 2px; }
+    .dnd-zone-active  { border-color: #2b6cb0; }
+    .dnd-zone-support { border-color: #b7791f; }
+    .dnd-zone-trigger { border-color: #6b46c1; }
+    .dnd-drop-zone.drag-over  { background: rgba(43,108,176,0.15); border-color: var(--accent-blue); border-style: solid; }
+    .dnd-drop-zone.drag-reject { background: rgba(197,48,48,0.1); border-color: var(--accent-red); }
+    .dnd-placeholder {
+      font-size: 0.65rem; color: var(--text-muted);
+      text-align: center; padding: 4px; pointer-events: none;
+    }
+
+    /* ── Draggable gem cards ────────────────────────────────────────── */
+    .dnd-gem {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 2px; padding: 6px 8px;
+      border-radius: 5px; cursor: grab;
+      user-select: none; width: 100%;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .dnd-gem:hover { transform: scale(1.03); }
+    .dnd-gem.dragging { opacity: 0.4; cursor: grabbing; }
+    .dnd-gem-icon { font-size: 1.4rem; line-height: 1; }
+    .dnd-gem-name { font-size: 0.65rem; font-weight: 600; text-align: center; color: var(--text-bright); }
+    .dnd-gem-meta { font-size: 0.6rem; color: var(--text-muted); }
+    .gem-role-active  .dnd-gem-icon { filter: drop-shadow(0 0 4px #2b6cb0); }
+    .gem-role-support .dnd-gem-icon { filter: drop-shadow(0 0 4px #b7791f); }
+    .gem-role-trigger .dnd-gem-icon { filter: drop-shadow(0 0 4px #6b46c1); }
+
+    /* ── Inventory grid ─────────────────────────────────────────────── */
+    .dnd-inventory-section {
+      border-top: 1px solid var(--border); padding-top: 12px;
+    }
+    .dnd-inventory-grid {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;
+    }
+    .dnd-inventory-grid .dnd-gem {
+      width: 80px; background: var(--bg-mid);
+      border: 1px solid var(--border); border-radius: 6px;
+    }
+    .dnd-inventory-grid .gem-role-active  { border-color: #2b6cb0; }
+    .dnd-inventory-grid .gem-role-support { border-color: #b7791f; }
+    .dnd-inventory-grid .gem-role-trigger { border-color: #6b46c1; }
+    .dnd-inventory-empty { color: var(--text-muted); font-size: 0.85rem; padding: 8px 0; }
+    .dnd-hint { font-size: 0.72rem; color: var(--text-muted); font-style: italic; }
 
     .close-btn {
       margin-top: 16px;

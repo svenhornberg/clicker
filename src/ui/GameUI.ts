@@ -753,82 +753,205 @@ export class GameUI {
     return panel;
   }
 
-  private appendGemManagement(wrapper: HTMLElement): void {
-    if (this.gameState.gemInventory.length === 0) return;
+  // ─── Drag & Drop Gem Manager ────────────────────────────────────────────────
 
-    const gemMgr = this.el('div', 'gem-manager');
-    gemMgr.innerHTML = '<div class="section-title">⚙️ Gems verwalten</div>';
+  private makeDraggableGem(gem: Gem, dragData: object): HTMLElement {
+    const card = this.el('div', `dnd-gem gem-role-${gem.role}`);
+    card.draggable = true;
+    card.innerHTML = `
+      <span class="dnd-gem-icon">${gem.icon ?? GEM_ROLE_ICONS[gem.role] ?? '🔷'}</span>
+      <span class="dnd-gem-name">${gem.name}</span>
+      <span class="dnd-gem-meta">Lv${gem.level} · ${gem.effectValue}</span>
+    `;
+    card.addEventListener('dragstart', (e) => {
+      e.dataTransfer!.effectAllowed = 'move';
+      e.dataTransfer!.setData('application/json', JSON.stringify(dragData));
+      card.classList.add('dragging');
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+    return card;
+  }
 
-    // Show gem inventory
-    this.gameState.gemInventory.forEach((gem, idx) => {
-      const row = this.el('div', 'gem-manage-row');
-      row.innerHTML = `
-        <span class="gem-badge gem-${gem.role}">${gem.role.toUpperCase()}</span>
-        <span class="gem-manage-name">${gem.name} Lv${gem.level}</span>
-        <span class="gem-manage-val">${gem.effectValue}</span>
-      `;
+  private makeDropZone(
+    label: string,
+    acceptRole: string,
+    onDrop: (data: Record<string, unknown>) => void,
+    filledGem?: Gem | null,
+    filledDragData?: object
+  ): HTMLElement {
+    const zone = this.el('div', `dnd-drop-zone dnd-zone-${acceptRole}${filledGem ? ' filled' : ' empty'}`);
 
-      // Add to slot buttons
-      if (gem.role === 'active') {
-        this.gameState.skillSlots.forEach((_slot, si) => {
-          const btn = this.el('button', 'slot-assign-btn');
-          btn.textContent = `→ Slot ${si + 1}`;
-          btn.addEventListener('click', () => {
-            this.onAction('assign-gem', { gemIndex: idx, slotIndex: si, role: 'active' });
-          });
-          row.appendChild(btn);
-        });
-      } else if (gem.role === 'support') {
-        this.gameState.skillSlots.forEach((_slot, si) => {
-          const btn = this.el('button', 'slot-assign-btn');
-          btn.textContent = `→ Slot ${si + 1}`;
-          btn.addEventListener('click', () => {
-            this.onAction('assign-gem', { gemIndex: idx, slotIndex: si, role: 'support' });
-          });
-          row.appendChild(btn);
-        });
-      } else if (gem.role === 'trigger') {
-        this.gameState.skillSlots.forEach((_slot, si) => {
-          const btn = this.el('button', 'slot-assign-btn');
-          btn.textContent = `→ Slot ${si + 1}`;
-          btn.addEventListener('click', () => {
-            this.onAction('assign-gem', { gemIndex: idx, slotIndex: si, role: 'trigger' });
-          });
-          row.appendChild(btn);
-        });
-      }
+    if (filledGem) {
+      const inner = this.makeDraggableGem(filledGem, filledDragData!);
+      zone.appendChild(inner);
+    } else {
+      zone.innerHTML = `<span class="dnd-placeholder">${label}</span>`;
+    }
 
-      gemMgr.appendChild(row);
+    zone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      try {
+        const raw = e.dataTransfer!.getData('application/json');
+        if (!raw) { zone.classList.add('drag-over'); return; }
+        const data = JSON.parse(raw) as Record<string, unknown>;
+        const gemRole = data.gemRole as string;
+        if (gemRole === acceptRole) zone.classList.add('drag-over');
+        else zone.classList.add('drag-reject');
+      } catch { zone.classList.add('drag-over'); }
+    });
+    zone.addEventListener('dragleave', () => {
+      zone.classList.remove('drag-over', 'drag-reject');
+    });
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('drag-over', 'drag-reject');
+      try {
+        const raw = e.dataTransfer!.getData('application/json');
+        if (!raw) return;
+        const data = JSON.parse(raw) as Record<string, unknown>;
+        if ((data.gemRole as string) === acceptRole) onDrop(data);
+      } catch { /* ignore */ }
     });
 
-    // Fusion pairs
+    return zone;
+  }
+
+  private appendGemManagement(wrapper: HTMLElement): void {
+    const gemMgr = this.el('div', 'gem-manager-dnd');
+    gemMgr.innerHTML = '<div class="section-title">⚙️ Gems verwalten — Ziehen & Ablegen</div>';
+
+    // ── Skill Slot Zones ────────────────────────────────────────────────────
+    const slotsSection = this.el('div', 'dnd-slots-section');
+
+    this.gameState.skillSlots.forEach((slot, si) => {
+      const slotRow = this.el('div', 'dnd-slot-row');
+      slotRow.innerHTML = `<div class="dnd-slot-label">Slot ${si + 1}</div>`;
+
+      // Active zone
+      const activeZone = this.makeDropZone(
+        '[ ACTIVE ]', 'active',
+        (data) => {
+          if (data.source === 'inventory') {
+            this.onAction('assign-gem', { gemIndex: data.gemIndex, slotIndex: si, role: 'active' });
+          } else {
+            this.onAction('move-gem', { fromSlot: data.slotIndex, fromRole: data.role, fromSupportIndex: data.supportIndex, toSlot: si, toRole: 'active' });
+          }
+        },
+        slot.active,
+        slot.active ? { source: 'slot', slotIndex: si, role: 'active', gemRole: 'active' } : undefined
+      );
+      if (slot.active) {
+        activeZone.querySelector('.dnd-gem')?.addEventListener('dblclick', () => {
+          this.onAction('remove-gem', { slotIndex: si, role: 'active' });
+        });
+      }
+      slotRow.appendChild(activeZone);
+
+      // Support zones (3)
+      const supportsWrap = this.el('div', 'dnd-supports-wrap');
+      for (let si2 = 0; si2 < 3; si2++) {
+        const existingSupport = slot.supports[si2] ?? null;
+        const supportZone = this.makeDropZone(
+          '[ + ]', 'support',
+          (data) => {
+            if (data.source === 'inventory') {
+              this.onAction('assign-gem', { gemIndex: data.gemIndex, slotIndex: si, role: 'support' });
+            } else {
+              this.onAction('move-gem', { fromSlot: data.slotIndex, fromRole: data.role, fromSupportIndex: data.supportIndex, toSlot: si, toRole: 'support' });
+            }
+          },
+          existingSupport,
+          existingSupport ? { source: 'slot', slotIndex: si, role: 'support', supportIndex: si2, gemRole: 'support' } : undefined
+        );
+        if (existingSupport) {
+          const capturedIdx = si2;
+          supportZone.querySelector('.dnd-gem')?.addEventListener('dblclick', () => {
+            this.onAction('remove-gem', { slotIndex: si, role: 'support', supportIndex: capturedIdx });
+          });
+        }
+        supportsWrap.appendChild(supportZone);
+      }
+      slotRow.appendChild(supportsWrap);
+
+      // Trigger zone
+      const triggerZone = this.makeDropZone(
+        '[ ⚡ ]', 'trigger',
+        (data) => {
+          if (data.source === 'inventory') {
+            this.onAction('assign-gem', { gemIndex: data.gemIndex, slotIndex: si, role: 'trigger' });
+          } else {
+            this.onAction('move-gem', { fromSlot: data.slotIndex, fromRole: data.role, fromSupportIndex: data.supportIndex, toSlot: si, toRole: 'trigger' });
+          }
+        },
+        slot.trigger,
+        slot.trigger ? { source: 'slot', slotIndex: si, role: 'trigger', gemRole: 'trigger' } : undefined
+      );
+      if (slot.trigger) {
+        triggerZone.querySelector('.dnd-gem')?.addEventListener('dblclick', () => {
+          this.onAction('remove-gem', { slotIndex: si, role: 'trigger' });
+        });
+      }
+      slotRow.appendChild(triggerZone);
+
+      slotsSection.appendChild(slotRow);
+    });
+    gemMgr.appendChild(slotsSection);
+
+    // ── Gem Inventory ────────────────────────────────────────────────────────
+    if (this.gameState.gemInventory.length > 0) {
+      const invSection = this.el('div', 'dnd-inventory-section');
+      invSection.innerHTML = `<div class="section-title">📦 Inventar (${this.gameState.gemInventory.length} Gems)</div>`;
+      const invGrid = this.el('div', 'dnd-inventory-grid');
+
+      this.gameState.gemInventory.forEach((gem, idx) => {
+        const card = this.makeDraggableGem(gem, {
+          source: 'inventory',
+          gemIndex: idx,
+          gemRole: gem.role,
+        });
+        invGrid.appendChild(card);
+      });
+
+      invSection.appendChild(invGrid);
+      gemMgr.appendChild(invSection);
+    } else {
+      const empty = this.el('div', 'dnd-inventory-empty');
+      empty.textContent = '📦 Kein Gem im Inventar.';
+      gemMgr.appendChild(empty);
+    }
+
+    // ── Fusion ───────────────────────────────────────────────────────────────
     const fusionPairs = findFusionPairs(this.gameState.gemInventory);
     if (fusionPairs.length > 0) {
       const fusionSection = this.el('div', 'fusion-section');
-      fusionSection.innerHTML = '<div class="section-title">⚗️ Fusion:</div>';
+      fusionSection.innerHTML = '<div class="section-title">⚗️ Fusion verfügbar:</div>';
       fusionPairs.forEach(([g1, g2], idx) => {
         const btn = this.el('button', 'fusion-btn');
-        btn.innerHTML = `${g1.name} Lv${g1.level} + ${g2.name} Lv${g2.level} → Lv${g1.level + 1}`;
-        btn.addEventListener('click', () => {
-          this.onAction('fuse-gems', { pairIndex: idx });
-        });
+        btn.innerHTML = `${g1.icon ?? ''} ${g1.name} Lv${g1.level} + ${g2.icon ?? ''} ${g2.name} Lv${g2.level} → <strong>Lv${(g1.level + 1)}</strong>`;
+        btn.addEventListener('click', () => this.onAction('fuse-gems', { pairIndex: idx }));
         fusionSection.appendChild(btn);
       });
       gemMgr.appendChild(fusionSection);
     }
 
+    // Hint
+    const hint = this.el('div', 'dnd-hint');
+    hint.textContent = 'Tipp: Doppelklick auf einen Gem im Slot entfernt ihn.';
+    gemMgr.appendChild(hint);
+
     wrapper.appendChild(gemMgr);
   }
 
   renderGemManager(): void {
+    // Remove existing overlay if open
+    document.querySelector('.gem-manager-overlay')?.remove();
+
     const overlay = this.el('div', 'gem-manager-overlay');
     this.appendGemManagement(overlay);
 
     const closeBtn = this.el('button', 'close-btn');
     closeBtn.textContent = '✕ Schließen';
-    closeBtn.addEventListener('click', () => {
-      overlay.remove();
-    });
+    closeBtn.addEventListener('click', () => overlay.remove());
     overlay.appendChild(closeBtn);
     this.container.appendChild(overlay);
   }

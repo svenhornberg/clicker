@@ -274,6 +274,24 @@ class GameManager {
         );
         break;
 
+      case 'remove-gem':
+        this.removeGemFromSlot(
+          d?.slotIndex as number,
+          d?.role as string,
+          d?.supportIndex as number | undefined
+        );
+        break;
+
+      case 'move-gem':
+        this.moveGemBetweenSlots(
+          d?.fromSlot as number,
+          d?.fromRole as string,
+          d?.fromSupportIndex as number | undefined,
+          d?.toSlot as number,
+          d?.toRole as string
+        );
+        break;
+
       case 'fuse-gems':
         this.fuseGemPair(d?.pairIndex as number);
         break;
@@ -701,6 +719,70 @@ class GameManager {
       this.setState({ skillSlots: newSlots, gemInventory: newGemInv });
     }
 
+    this.render();
+  }
+
+  private removeGemFromSlot(slotIndex: number, role: string, supportIndex?: number) {
+    const newSlots = this.state.skillSlots.map((s) => ({ ...s, supports: [...s.supports] }));
+    const slot = newSlots[slotIndex];
+    if (!slot) return;
+    const newGemInv = [...this.state.gemInventory];
+
+    if (role === 'active' && slot.active) {
+      newGemInv.push(slot.active);
+      slot.active = null;
+    } else if (role === 'support' && supportIndex !== undefined && slot.supports[supportIndex]) {
+      newGemInv.push(slot.supports[supportIndex]);
+      slot.supports.splice(supportIndex, 1);
+    } else if (role === 'trigger' && slot.trigger) {
+      newGemInv.push(slot.trigger);
+      slot.trigger = null;
+    }
+
+    this.setState({ skillSlots: newSlots, gemInventory: newGemInv });
+    this.render();
+  }
+
+  private moveGemBetweenSlots(
+    fromSlot: number,
+    fromRole: string,
+    fromSupportIndex: number | undefined,
+    toSlot: number,
+    toRole: string
+  ) {
+    // Extract gem from source slot into a temp inventory, then assign to target
+    const newSlots = this.state.skillSlots.map((s) => ({ ...s, supports: [...s.supports] }));
+    const src = newSlots[fromSlot];
+    if (!src) return;
+
+    let gem = null;
+    if (fromRole === 'active') { gem = src.active; src.active = null; }
+    else if (fromRole === 'support' && fromSupportIndex !== undefined) {
+      gem = src.supports[fromSupportIndex];
+      src.supports.splice(fromSupportIndex, 1);
+    } else if (fromRole === 'trigger') { gem = src.trigger; src.trigger = null; }
+
+    if (!gem || gem.role !== toRole) {
+      // Invalid move — abort (restore by not applying)
+      return;
+    }
+
+    const dst = newSlots[toSlot];
+    if (!dst) return;
+    const newGemInv = [...this.state.gemInventory];
+
+    if (toRole === 'active') {
+      if (dst.active) newGemInv.push(dst.active);
+      dst.active = gem;
+    } else if (toRole === 'support') {
+      if (dst.supports.length >= 3) { newGemInv.push(dst.supports[0]); dst.supports[0] = gem; }
+      else dst.supports.push(gem);
+    } else if (toRole === 'trigger') {
+      if (dst.trigger) newGemInv.push(dst.trigger);
+      dst.trigger = gem;
+    }
+
+    this.setState({ skillSlots: newSlots, gemInventory: newGemInv });
     this.render();
   }
 
