@@ -1,5 +1,5 @@
 // MetaSystem.ts — meta progression logic
-import type { GameState, MetaState, Item } from '../core/types';
+import type { GameState, MetaState, Item, SkillSlot } from '../core/types';
 import { allMetaUpgrades } from '../data/metaUpgrades';
 import { supportGems } from '../data/gems';
 import { randomInt } from '../utils/random';
@@ -79,6 +79,17 @@ export function applyMetaUpgrades(baseGameState: GameState, metaState: MetaState
       bonusGems.push({ ...supportGems[idx] });
     }
     state = { ...state, gemInventory: [...state.gemInventory, ...bonusGems] };
+  }
+
+  // Größerer Schreibtisch: extra skill slots
+  const extraSlots = getUpgrade(metaState, 'meta_extra_slot');
+  if (extraSlots > 0) {
+    const added: SkillSlot[] = Array.from({ length: extraSlots }, () => ({
+      active: null,
+      supports: [],
+      trigger: null,
+    }));
+    state = { ...state, skillSlots: [...state.skillSlots, ...added] };
   }
 
   state = { ...state, player };

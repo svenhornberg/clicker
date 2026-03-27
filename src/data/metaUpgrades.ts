@@ -90,4 +90,12 @@ export const allMetaUpgrades: MetaUpgrade[] = [
     costPerLevel: [50, 90, 150],
     flavorText: 'Zertifikat erworben. LinkedIn aktualisiert.',
   },
+  {
+    id: 'meta_extra_slot',
+    name: 'Größerer Schreibtisch',
+    description: '+1 Skill-Slot pro Level (max +2, also bis zu 5 Slots)',
+    maxLevel: 2,
+    costPerLevel: [120, 220],
+    flavorText: 'Endlich Platz für die dritte Tastatur.',
+  },
 ];

@@ -283,6 +283,16 @@ class GameManager {
         this.leaveShop();
         break;
 
+      case 'buy-slot':
+        if (this.state.player.gold >= 150 && this.state.skillSlots.length < 6) {
+          this.setState({
+            skillSlots: [...this.state.skillSlots, { active: null, supports: [], trigger: null }],
+            player: { ...this.state.player, gold: this.state.player.gold - 150 },
+          });
+          this.render();
+        }
+        break;
+
       case 'buy-item':
         this.buyItem(d?.itemIndex as number, d?.price as number);
         break;

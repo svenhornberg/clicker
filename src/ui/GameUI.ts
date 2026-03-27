@@ -612,6 +612,25 @@ export class GameUI {
       wrapper.appendChild(gemsEl);
     }
 
+    // Skill-Slot kaufen (max 6)
+    if (this.gameState.skillSlots.length < 6) {
+      const slotSection = this.el('div', 'shop-section');
+      slotSection.innerHTML = '<div class="section-title">🪑 Schreibtisch-Erweiterung:</div>';
+      const slotCard = this.el('div', 'shop-slot-card');
+      slotCard.innerHTML = `
+        <div class="shop-slot-title">Größerer Schreibtisch</div>
+        <div class="shop-slot-desc">+1 Skill-Slot (aktuell: ${this.gameState.skillSlots.length}/6)</div>
+        <div class="shop-slot-flavor">"Endlich Platz für die dritte Tastatur."</div>
+      `;
+      const slotBtn = this.el('button', this.gameState.player.gold >= 150 ? 'buy-btn' : 'buy-btn disabled-btn');
+      slotBtn.textContent = `Kaufen (150 💰)`;
+      slotBtn.disabled = this.gameState.player.gold < 150;
+      slotBtn.addEventListener('click', () => this.onAction('buy-slot'));
+      slotCard.appendChild(slotBtn);
+      slotSection.appendChild(slotCard);
+      wrapper.appendChild(slotSection);
+    }
+
     const leaveBtn = this.el('button', 'continue-btn big-btn');
     leaveBtn.textContent = 'Kaffeeküche verlassen →';
     leaveBtn.addEventListener('click', () => this.onAction('leave-shop'));
