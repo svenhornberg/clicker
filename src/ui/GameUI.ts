@@ -976,8 +976,9 @@ export class GameUI {
       slotEl.innerHTML = `<span class="slot-num">Slot ${idx + 1}</span>`;
 
       if (slot.active) {
+        const icon = slot.active.icon ?? '🔷';
         slotEl.innerHTML += `
-          <span class="slot-active">${slot.active.name} (Lv${slot.active.level})</span>
+          <span class="slot-active">${icon} ${slot.active.name} (Lv${slot.active.level})</span>
         `;
       } else {
         slotEl.innerHTML += `<span class="slot-empty">[ Leer ]</span>`;
@@ -985,12 +986,13 @@ export class GameUI {
 
       if (slot.supports.length > 0) {
         slotEl.innerHTML += slot.supports
-          .map((s) => `<span class="slot-support">${s.name}</span>`)
+          .map((s) => `<span class="slot-support">${s.icon ?? '🔹'} ${s.name}</span>`)
           .join('');
       }
 
       if (slot.trigger) {
-        slotEl.innerHTML += `<span class="slot-trigger">⚡${slot.trigger.name}</span>`;
+        const icon = slot.trigger.icon ?? '⚡';
+        slotEl.innerHTML += `<span class="slot-trigger">${icon} ${slot.trigger.name}</span>`;
       }
 
       panel.appendChild(slotEl);
