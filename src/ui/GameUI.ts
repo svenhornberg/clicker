@@ -7,6 +7,8 @@ import type {
   Gem,
   Item,
   Department,
+  MetaState,
+  MetaUpgrade,
 } from '../core/types';
 import { DEPARTMENT_NAMES, ROOM_TYPE_LABELS } from '../data/floors';
 import { getItemShopPrice, getGemShopPrice } from '../systems/LootSystem';
@@ -28,6 +30,41 @@ const ROOM_ICONS: Record<Room['type'], string> = {
   shop: '🛒',
   printer: '🖨️',
   boss: '👔',
+};
+
+const MONSTER_ICONS: Record<string, string> = {
+  monster_newbie_onboarding:        '😰',
+  monster_itguy_onboarding:         '🖥️',
+  monster_hrbot_onboarding:         '🤖',
+  monster_juniorpm_marketing:       '📣',
+  monster_influencer_marketing:     '🤳',
+  monster_contentcreator_marketing: '✏️',
+  monster_headofbrand_marketing:    '🎨',
+  monster_pm_produkt:               '🗂️',
+  monster_scrummaster_produkt:      '🔄',
+  monster_designer_produkt:         '🖌️',
+  monster_po_produkt:               '📌',
+  monster_analyst_controlling:      '📉',
+  monster_audit_controlling:        '🔍',
+  monster_controller_controlling:   '🧮',
+  monster_cfoassist_controlling:    '💰',
+  monster_sysadmin_it:              '🐧',
+  monster_ticketgeist_it:           '🎫',
+  monster_devops_it:                '⚙️',
+  monster_seniorsysadmin_it:        '💾',
+  monster_secretary_chef:           '📞',
+  monster_headpa_chef:              '🗝️',
+  monster_ceo_chef:                 '👑',
+};
+
+function getMonsterIcon(id: string): string {
+  return MONSTER_ICONS[id] ?? '👤';
+}
+
+const GEM_ROLE_ICONS: Record<string, string> = {
+  active:  '🔷',
+  support: '🔶',
+  trigger: '⚡',
 };
 
 export class GameUI {
@@ -82,6 +119,9 @@ export class GameUI {
         break;
       case 'victory':
         this.renderVictory();
+        break;
+      case 'meta':
+        // renderMeta is called directly with metaState and upgrades
         break;
     }
   }
@@ -164,8 +204,15 @@ export class GameUI {
     enemyPanel.style.borderColor = color;
 
     const enemyHpPct = Math.max(0, (combatState.enemyHp / enemy.maxHp) * 100);
+
+    // Enemy attack timer bar
+    const enemyCdPct = combatState.enemyMaxCooldown > 0
+      ? Math.max(0, Math.min(100, (1 - combatState.enemyCooldown / combatState.enemyMaxCooldown) * 100))
+      : 0;
+
     enemyPanel.innerHTML = `
       <div class="enemy-header">
+        <span class="enemy-icon">${getMonsterIcon(enemy.id)}</span>
         <span class="enemy-name" style="color:${color}">${enemy.name}</span>
         ${enemy.isBoss ? '<span class="boss-badge">BOSS</span>' : ''}
         <span class="enemy-dept">${DEPARTMENT_NAMES[dept]}</span>
@@ -173,6 +220,12 @@ export class GameUI {
       <div class="hp-bar-container">
         <div class="hp-bar" style="width:${enemyHpPct}%;background:${color}"></div>
         <span class="hp-text">${combatState.enemyHp}/${enemy.maxHp}</span>
+      </div>
+      <div class="enemy-attack-timer">
+        <span class="attack-timer-label">Angriff in:</span>
+        <div class="skill-slot-cooldown">
+          <div class="skill-slot-cooldown-fill${enemyCdPct >= 90 ? ' ready' : ''}" style="width:${enemyCdPct}%;background:#ef4444aa"></div>
+        </div>
       </div>
       ${enemy.specialAbilityName
         ? `<div class="special-ability">⚡ ${enemy.specialAbilityName}: ${enemy.specialAbilityDescription}</div>`
@@ -204,24 +257,47 @@ export class GameUI {
     `;
     wrapper.appendChild(playerPanel);
 
-    // Skill buttons (above log so they stay in place)
-    if (!combatState.isOver && combatState.isPlayerTurn) {
+    // Combat log (last 5 entries)
+    const logEl = this.el('div', 'combat-log');
+    const logLines = combatState.log.slice(-5);
+    logEl.innerHTML = logLines
+      .map((line) => `<div class="log-line">${this.escHtml(line)}</div>`)
+      .join('');
+    wrapper.appendChild(logEl);
+
+    // Skill slots with cooldown bars — always shown during combat
+    if (!combatState.isOver) {
       const skillsEl = this.el('div', 'combat-skills');
-      skillsEl.innerHTML = '<div class="skills-title">Dein Zug — wähle eine Attacke:</div>';
+      skillsEl.innerHTML = '<div class="skills-title">Skill-Slots — Klicken zum sofortigen Feuern:</div>';
 
       this.gameState.skillSlots.forEach((slot, idx) => {
         if (!slot.active) return;
-        const btn = this.el('button', 'skill-btn');
+
         const gem = slot.active;
         const tags = gem.tags?.join(', ') ?? '';
+
+        const cdRemaining = combatState.slotCooldowns[idx] ?? 0;
+        const cdMax = combatState.slotMaxCooldowns[idx] ?? 4000;
+        // Fill progress: 0% = just fired, 100% = ready
+        const fillPct = cdMax > 0 ? Math.max(0, Math.min(100, (1 - cdRemaining / cdMax) * 100)) : 100;
+        const isReady = fillPct >= 90;
+
+        const btn = this.el('button', `skill-btn${isReady ? ' skill-ready' : ''}`);
+        const gemIcon = gem.icon ?? GEM_ROLE_ICONS[gem.role] ?? '🔷';
         btn.innerHTML = `
-          <span class="skill-name">${gem.name}</span>
-          <span class="skill-tags">${tags}</span>
-          ${slot.supports.length > 0
-            ? `<span class="skill-supports">${slot.supports.map((s) => s.name).join(' + ')}</span>`
-            : ''}
-          ${slot.trigger ? `<span class="skill-trigger">⚡ ${slot.trigger.name}</span>` : ''}
-          <span class="skill-dmg">~${gem.effectValue * gem.level} dmg</span>
+          <div class="skill-btn-content">
+            <span class="skill-gem-icon">${gemIcon}</span>
+            <span class="skill-name">${gem.name}</span>
+            <span class="skill-tags">${tags}</span>
+            ${slot.supports.length > 0
+              ? `<span class="skill-supports">${slot.supports.map((s) => `${s.icon ?? '🔶'} ${s.name}`).join(' + ')}</span>`
+              : ''}
+            ${slot.trigger ? `<span class="skill-trigger">${slot.trigger.icon ?? '⚡'} ${slot.trigger.name}</span>` : ''}
+            <span class="skill-dmg">~${gem.effectValue * gem.level} dmg</span>
+          </div>
+          <div class="skill-slot-cooldown">
+            <div class="skill-slot-cooldown-fill${isReady ? ' ready' : ''}" style="width:${fillPct}%"></div>
+          </div>
         `;
         btn.addEventListener('click', () => {
           this.onAction('player-attack', { slotIndex: idx });
@@ -236,7 +312,8 @@ export class GameUI {
       skillsEl.appendChild(escBtn);
 
       wrapper.appendChild(skillsEl);
-    } else if (combatState.isOver) {
+    } else {
+      // Combat over
       const resultEl = this.el('div', 'combat-result');
       if (combatState.playerWon) {
         resultEl.innerHTML = `<div class="victory-msg">Gewonnen! 🎉</div>`;
@@ -247,19 +324,11 @@ export class GameUI {
       } else {
         resultEl.innerHTML = `<div class="defeat-msg">Niederlage... 😔</div>`;
         const gameOverBtn = this.el('button', 'gameover-btn');
-        gameOverBtn.textContent = 'Game Over';
+        gameOverBtn.textContent = 'Weiter →';
         gameOverBtn.addEventListener('click', () => this.onAction('game-over'));
         resultEl.appendChild(gameOverBtn);
       }
       wrapper.appendChild(resultEl);
-    } else if (!combatState.isPlayerTurn) {
-      const waitEl = this.el('div', 'enemy-turn-indicator');
-      waitEl.textContent = `${enemy.name} ist dran...`;
-      const enemyBtn = this.el('button', 'continue-btn');
-      enemyBtn.textContent = 'Weiter →';
-      enemyBtn.addEventListener('click', () => this.onAction('enemy-turn'));
-      wrapper.appendChild(waitEl);
-      wrapper.appendChild(enemyBtn);
     }
 
     // Round info
@@ -267,15 +336,93 @@ export class GameUI {
     roundEl.textContent = `Runde ${combatState.round}`;
     wrapper.appendChild(roundEl);
 
-    // Combat log (after buttons so it scrolls independently)
-    const logEl = this.el('div', 'combat-log');
-    const logLines = combatState.log.slice(-20);
-    logEl.innerHTML = logLines
-      .map((line) => `<div class="log-line">${this.escHtml(line)}</div>`)
-      .join('');
-    wrapper.appendChild(logEl);
-    // Scroll to bottom
-    logEl.scrollTop = logEl.scrollHeight;
+    this.container.appendChild(wrapper);
+  }
+
+  renderMeta(metaState: MetaState, availableUpgrades: MetaUpgrade[]): void {
+    this.container.innerHTML = '';
+
+    const wrapper = this.el('div', 'meta-screen');
+
+    const header = this.el('div', 'meta-header');
+    header.innerHTML = `
+      <h1 class="meta-title">🏢 Karriereberatung</h1>
+      <p class="meta-subtitle">Investiere deine Betriebsjahre in permanente Verbesserungen.</p>
+    `;
+    wrapper.appendChild(header);
+
+    const currencyEl = this.el('div', 'meta-currency');
+    currencyEl.textContent = `⏳ ${metaState.betriebsjahre} Betriebsjahre`;
+    wrapper.appendChild(currencyEl);
+
+    const statsEl = this.el('div', 'meta-stats');
+    statsEl.innerHTML = `
+      <span>Runs: ${metaState.totalRuns}</span>
+      <span>Höchste Etage: ${metaState.highestFloorReached}</span>
+      <span>Siege: ${metaState.victories}</span>
+    `;
+    wrapper.appendChild(statsEl);
+
+    const grid = this.el('div', 'meta-upgrades-grid');
+
+    for (const upgrade of availableUpgrades) {
+      const currentLevel = metaState.upgrades[upgrade.id] ?? 0;
+      const isMaxed = currentLevel >= upgrade.maxLevel;
+      const nextCost = isMaxed ? null : upgrade.costPerLevel[currentLevel];
+      const canAffordIt = nextCost !== null && metaState.betriebsjahre >= nextCost;
+
+      const card = this.el('div', `meta-upgrade-card${isMaxed ? ' maxed' : ''}`);
+
+      // Level dots
+      const dotsEl = this.el('div', 'meta-upgrade-level-dots');
+      for (let i = 0; i < upgrade.maxLevel; i++) {
+        const dot = this.el('div', `meta-upgrade-level-dot${i < currentLevel ? ' filled' : ''}`);
+        dotsEl.appendChild(dot);
+      }
+
+      const nameEl = this.el('div', 'meta-upgrade-name');
+      nameEl.textContent = upgrade.name;
+      card.appendChild(nameEl);
+      card.appendChild(dotsEl);
+
+      const descEl = this.el('div', 'meta-upgrade-desc');
+      descEl.textContent = upgrade.description;
+      card.appendChild(descEl);
+
+      const flavorEl = this.el('div', 'meta-upgrade-flavor');
+      flavorEl.textContent = `"${upgrade.flavorText}"`;
+      card.appendChild(flavorEl);
+
+      if (isMaxed) {
+        const maxedBadge = this.el('div', 'meta-upgrade-maxed-badge');
+        maxedBadge.textContent = 'MAX';
+        card.appendChild(maxedBadge);
+      } else {
+        const costEl = this.el('div', 'meta-upgrade-cost');
+        costEl.textContent = `${nextCost} Betriebsjahre`;
+        card.appendChild(costEl);
+
+        const btn = this.el('button', `meta-upgrade-btn${canAffordIt ? '' : ' disabled'}`);
+        btn.textContent = canAffordIt ? 'Upgraden' : 'Zu teuer';
+        btn.disabled = !canAffordIt;
+        if (canAffordIt) {
+          const upgradeId = upgrade.id;
+          btn.addEventListener('click', () => {
+            this.onAction('purchase-upgrade', { upgradeId });
+          });
+        }
+        card.appendChild(btn);
+      }
+
+      grid.appendChild(card);
+    }
+
+    wrapper.appendChild(grid);
+
+    const newRunBtn = this.el('button', 'continue-btn big-btn meta-new-run-btn');
+    newRunBtn.textContent = '▶ Neuer Versuch';
+    newRunBtn.addEventListener('click', () => this.onAction('new-game'));
+    wrapper.appendChild(newRunBtn);
 
     this.container.appendChild(wrapper);
   }
@@ -477,8 +624,13 @@ export class GameUI {
       </div>
     `;
 
-    const retryBtn = this.el('button', 'continue-btn big-btn');
-    retryBtn.textContent = '🔄 Neues Spiel';
+    const metaBtn = this.el('button', 'continue-btn big-btn');
+    metaBtn.textContent = '🏢 Karriereberatung';
+    metaBtn.addEventListener('click', () => this.onAction('go-to-meta'));
+    wrapper.appendChild(metaBtn);
+
+    const retryBtn = this.el('button', 'skip-btn');
+    retryBtn.textContent = '🔄 Direkt neues Spiel';
     retryBtn.addEventListener('click', () => this.onAction('new-game'));
     wrapper.appendChild(retryBtn);
 
@@ -505,8 +657,13 @@ export class GameUI {
       </div>
     `;
 
-    const newGameBtn = this.el('button', 'continue-btn big-btn');
-    newGameBtn.textContent = '🔄 Neues Spiel';
+    const metaBtn = this.el('button', 'continue-btn big-btn');
+    metaBtn.textContent = '🏢 Karriereberatung';
+    metaBtn.addEventListener('click', () => this.onAction('go-to-meta'));
+    wrapper.appendChild(metaBtn);
+
+    const newGameBtn = this.el('button', 'skip-btn');
+    newGameBtn.textContent = '🔄 Direkt neues Spiel';
     newGameBtn.addEventListener('click', () => this.onAction('new-game'));
     wrapper.appendChild(newGameBtn);
 

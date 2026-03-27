@@ -11,6 +11,7 @@ export const activeGems: Gem[] = [
     tags: ['buzzword'],
     effectValue: 30,
     flavorText: 'Synergien heben, Paradigmen shiften.',
+    icon: '💬',
   },
   {
     id: 'gem_meeting_active',
@@ -21,6 +22,7 @@ export const activeGems: Gem[] = [
     tags: ['meeting-einladen'],
     effectValue: 25,
     flavorText: 'Niemand weiß warum, alle müssen.',
+    icon: '📅',
   },
   {
     id: 'gem_zahlen_active',
@@ -31,6 +33,7 @@ export const activeGems: Gem[] = [
     tags: ['konkrete-zahl'],
     effectValue: 35,
     flavorText: 'Eine Excel-Tabelle als Waffe.',
+    icon: '📊',
   },
   {
     id: 'gem_eskalation_active',
@@ -41,6 +44,7 @@ export const activeGems: Gem[] = [
     tags: ['eskalieren'],
     effectValue: 40,
     flavorText: 'CC an alle. Auch den CEO.',
+    icon: '📧',
   },
   {
     id: 'gem_smalltalk_active',
@@ -51,6 +55,7 @@ export const activeGems: Gem[] = [
     tags: ['smalltalk'],
     effectValue: 20,
     flavorText: 'Wie war dein Wochenende?',
+    icon: '☕',
   },
   {
     id: 'gem_docu_active',
@@ -61,6 +66,7 @@ export const activeGems: Gem[] = [
     tags: ['docu-schreiben'],
     effectValue: 28,
     flavorText: 'Niemand liest sie. Trotzdem wirksam.',
+    icon: '📝',
   },
   {
     id: 'gem_strategiepapier_active',
@@ -71,6 +77,7 @@ export const activeGems: Gem[] = [
     tags: ['buzzword', 'docu-schreiben'],
     effectValue: 32,
     flavorText: 'Vollmundig. Inhaltsarm. Wirkungsvoll.',
+    icon: '📋',
   },
   {
     id: 'gem_kaffee_active',
@@ -81,6 +88,7 @@ export const activeGems: Gem[] = [
     tags: ['smalltalk'],
     effectValue: 15,
     flavorText: 'Kurze Pause. Langer Effekt.',
+    icon: '☕',
   },
   {
     id: 'gem_offlinemeeting_active',
@@ -91,6 +99,7 @@ export const activeGems: Gem[] = [
     tags: ['meeting-einladen', 'smalltalk'],
     effectValue: 22,
     flavorText: 'Endlich sieht man sich mal wieder.',
+    icon: '🤝',
   },
 ];
 
@@ -103,6 +112,7 @@ export const supportGems: Gem[] = [
     description: 'Buzzword-Attacken im selben Slot erhalten +40% Schaden.',
     effectValue: 40,
     flavorText: 'Leverage your synergies.',
+    icon: '🔤',
   },
   {
     id: 'gem_replyall_support',
@@ -112,6 +122,7 @@ export const supportGems: Gem[] = [
     description: 'Die Attacke trifft alle Gegner im Raum statt einem.',
     effectValue: 1,
     flavorText: 'CC an alle.',
+    icon: '↩️',
   },
   {
     id: 'gem_dringlich_support',
@@ -121,6 +132,7 @@ export const supportGems: Gem[] = [
     description: '+25% Schaden, aber nächste Runde –20% (Glaubwürdigkeit sinkt).',
     effectValue: 25,
     flavorText: 'Prio 1! PRIO 1!',
+    icon: '🚨',
   },
   {
     id: 'gem_bulletpoint_support',
@@ -130,6 +142,7 @@ export const supportGems: Gem[] = [
     description: 'Reduziert Resistenz des Ziels um 20% für 2 Runden.',
     effectValue: 20,
     flavorText: 'Strukturiert. Unvermeidbar.',
+    icon: '•',
   },
   {
     id: 'gem_mfg_support',
@@ -139,6 +152,7 @@ export const supportGems: Gem[] = [
     description: 'Heilt 5% HP nach jeder Attacke im Slot.',
     effectValue: 5,
     flavorText: 'Hochachtungsvoll.',
+    icon: '🤝',
   },
   {
     id: 'gem_overtime_support',
@@ -148,6 +162,7 @@ export const supportGems: Gem[] = [
     description: '+15% Schaden. Man gibt halt alles.',
     effectValue: 15,
     flavorText: 'Geht schon noch.',
+    icon: '🌙',
   },
   {
     id: 'gem_powerpoint_support',
@@ -157,6 +172,7 @@ export const supportGems: Gem[] = [
     description: '+20% Schaden. Professionelles Erscheinungsbild.',
     effectValue: 20,
     flavorText: 'Schrift mindestens 14pt. Natürlich Arial.',
+    icon: '📐',
   },
 ];
 
@@ -169,6 +185,7 @@ export const triggerGems: Gem[] = [
     description: 'Löst automatisch aus nach 2 Runden ohne eigenen Angriff.',
     effectValue: 2,
     flavorText: 'Niemand hat mich gefragt.',
+    icon: '👻',
   },
   {
     id: 'gem_ueberstunden_trigger',
@@ -178,6 +195,7 @@ export const triggerGems: Gem[] = [
     description: 'Löst aus wenn eigene HP unter 30%. Man arbeitet halt weiter.',
     effectValue: 30,
     flavorText: 'Man arbeitet halt weiter.',
+    icon: '😤',
   },
   {
     id: 'gem_postmeeting_trigger',
@@ -187,6 +205,7 @@ export const triggerGems: Gem[] = [
     description: 'Löst einmalig aus nach einem meeting-einladen-Effekt. +50% Schaden.',
     effectValue: 50,
     flavorText: 'Endlich Klarheit.',
+    icon: '⚡',
   },
   {
     id: 'gem_koffein_trigger',
@@ -196,6 +215,7 @@ export const triggerGems: Gem[] = [
     description: 'Löst nach Nutzung eines Kaffee-Items aus. +30% Schaden.',
     effectValue: 30,
     flavorText: 'Vierter Kaffee. Zitternde Hände.',
+    icon: '☕',
   },
 ];
 

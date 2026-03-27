@@ -30,6 +30,7 @@ export interface Gem {
   tags?: AttackTag[];       // only for active gems
   effectValue: number;
   flavorText: string;
+  icon?: string;
 }
 
 export interface SkillSlot {
@@ -84,6 +85,7 @@ export interface Monster {
   isBoss: boolean;
   specialAbilityName?: string;
   specialAbilityDescription?: string;
+  icon?: string;
 }
 
 export interface PlayerStats {
