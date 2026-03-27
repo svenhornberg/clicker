@@ -159,6 +159,15 @@ export class GameUI {
         <span class="gold-display">💰 ${this.gameState.player.gold}</span>
       </div>
     `;
+    const abandonBtn = this.el('button', 'abandon-btn');
+    abandonBtn.textContent = '🚪 Run beenden';
+    abandonBtn.title = 'Run aufgeben und zur Karriereberatung';
+    abandonBtn.addEventListener('click', () => {
+      if (confirm('Run wirklich beenden? Fortschritt geht verloren.')) {
+        this.onAction('abandon-run');
+      }
+    });
+    header.appendChild(abandonBtn);
     wrapper.appendChild(header);
 
     // Rooms

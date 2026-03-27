@@ -353,6 +353,14 @@ class GameManager {
         this.render();
         break;
 
+      case 'abandon-run':
+        this.stopCombatLoop();
+        this.endRun(false);
+        deleteSave();
+        this.setState({ phase: 'meta' });
+        this.render();
+        break;
+
       case 'go-to-meta':
         this.setState({ phase: 'meta' });
         this.render();
