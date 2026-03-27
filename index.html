@@ -217,8 +217,8 @@
     /* ── Paper Doll container ── */
     .char-doll {
       position: relative;
-      width: 280px;
-      height: 380px;
+      width: 300px;
+      height: 500px;
       flex-shrink: 0;
       background: linear-gradient(160deg, #f0f4fa 0%, #e8ecf4 100%);
       border: 1px solid var(--border);
@@ -231,12 +231,12 @@
       background-size: 24px 24px, 24px 24px, 100% 100%;
     }
 
-    /* Silhouette figure in the center */
+    /* Silhouette figure in the center — between rows 2 and 4 */
     .char-silhouette {
       position: absolute;
-      top: 50%;
+      top: 155px;
       left: 50%;
-      transform: translate(-50%, -50%);
+      transform: translateX(-50%);
       font-size: 5rem;
       line-height: 1;
       pointer-events: none;
@@ -245,17 +245,17 @@
       filter: grayscale(1);
     }
 
-    /* Employee ID card label overlay */
+    /* Employee ID card label — positioned below silhouette, above gloves row */
     .char-id-label {
       position: absolute;
-      top: 50%;
+      top: 278px;
       left: 50%;
-      transform: translate(-50%, 70px);
+      transform: translateX(-50%);
       background: #fff;
       border: 1px solid var(--border);
       border-radius: 4px;
-      padding: 3px 10px;
-      font-size: 0.62rem;
+      padding: 2px 8px;
+      font-size: 0.58rem;
       font-weight: 700;
       letter-spacing: 0.08em;
       color: var(--text-muted);
@@ -330,15 +330,20 @@
     }
 
     /* Slot positions */
-    .equip-slot[data-slot="helm"]    { top: 2%;  left: 50%; transform: translateX(-50%); }
-    .equip-slot[data-slot="weapon"]  { top: 30%; left: 2%; }
-    .equip-slot[data-slot="offhand"] { top: 30%; right: 2%; }
-    .equip-slot[data-slot="armor"]   { top: 38%; left: 50%; transform: translateX(-50%); }
-    .equip-slot[data-slot="gloves"]  { top: 62%; left: 2%; }
-    .equip-slot[data-slot="shoes"]   { top: 62%; right: 2%; }
-    .equip-slot[data-slot="amulet"]  { top: 72%; left: 50%; transform: translateX(-50%); }
-    .equip-slot[data-slot="ring1"]   { bottom: 4%; left: 18%; transform: translateX(-50%); }
-    .equip-slot[data-slot="ring2"]   { bottom: 4%; right: 18%; transform: translateX(50%); }
+    /* Row 1: helm */
+    .equip-slot[data-slot="helm"]    { top: 8px;   left: 50%; transform: translateX(-50%); }
+    /* Row 2: weapon / offhand */
+    .equip-slot[data-slot="weapon"]  { top: 110px; left: 6px; }
+    .equip-slot[data-slot="offhand"] { top: 110px; right: 6px; }
+    /* Row 3: armor (center) */
+    .equip-slot[data-slot="armor"]   { top: 200px; left: 50%; transform: translateX(-50%); }
+    /* Row 4: gloves / shoes */
+    .equip-slot[data-slot="gloves"]  { top: 300px; left: 6px; }
+    .equip-slot[data-slot="shoes"]   { top: 300px; right: 6px; }
+    /* Row 5: ring1 / amulet / ring2 */
+    .equip-slot[data-slot="ring1"]   { top: 410px; left: 6px; }
+    .equip-slot[data-slot="amulet"]  { top: 410px; left: 50%; transform: translateX(-50%); }
+    .equip-slot[data-slot="ring2"]   { top: 410px; right: 6px; }
 
     /* ── Backpack / unequipped item list ── */
     .char-backpack {
