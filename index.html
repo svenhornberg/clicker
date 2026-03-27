@@ -401,6 +401,60 @@
       line-height: 1.35;
     }
 
+    .backpack-item-stats {
+      color: var(--accent-green);
+      font-size: 0.63rem;
+      font-weight: 600;
+    }
+
+    /* ── Item Tooltip ─────────────────────────────────────────────── */
+    .item-tooltip {
+      display: none;
+      position: fixed;
+      z-index: 9999;
+      width: 220px;
+      background: #1e2535;
+      color: #e2f0fb;
+      border: 1px solid #4a90d9;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      pointer-events: none;
+    }
+    .tip-name {
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: #ffd700;
+      margin-bottom: 6px;
+      border-bottom: 1px solid #4a90d944;
+      padding-bottom: 5px;
+    }
+    .tip-stats {
+      color: #86efac;
+      font-size: 0.75rem;
+      margin-bottom: 6px;
+    }
+    .tip-desc {
+      color: #c8d6e5;
+      font-size: 0.73rem;
+      margin-bottom: 4px;
+    }
+    .tip-flavor {
+      color: #718096;
+      font-size: 0.68rem;
+      font-style: italic;
+    }
+
+    /* stat line visible in filled slot */
+    .equip-slot-stats {
+      font-size: 0.55rem;
+      font-weight: 700;
+      color: #276749;
+      margin-top: 1px;
+    }
+
     .backpack-empty {
       color: var(--text-muted);
       font-size: 0.72rem;

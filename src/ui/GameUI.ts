@@ -732,6 +732,47 @@ export class GameUI {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
+  private formatItemStats(stats: Record<string, number | undefined>): string {
+    const labels: Record<string, string> = {
+      armor: '🛡️ Rüstung', attackSpeed: '⚡ Angriffsgeschwindigkeit',
+      critChance: '🎯 Krit-Chance', escapeChance: '👟 Fluchtchance',
+      gold: '💰 Gold/Kampf', concentration: '🧠 Konzentration',
+      damage: '⚔️ Schaden', hpRegen: '❤️ HP-Regen',
+    };
+    return Object.entries(stats)
+      .filter(([, v]) => v !== undefined && v !== 0)
+      .map(([k, v]) => `${labels[k] ?? k}: +${v}`)
+      .join('\n');
+  }
+
+  private showItemTooltip(el: HTMLElement, item: { name: string; description: string; flavorText: string; stats: Record<string, number | undefined> }): void {
+    let tip = document.getElementById('item-tooltip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'item-tooltip';
+      tip.className = 'item-tooltip';
+      document.body.appendChild(tip);
+    }
+    const statsStr = this.formatItemStats(item.stats);
+    tip.innerHTML = `
+      <div class="tip-name">${item.name}</div>
+      ${statsStr ? `<div class="tip-stats">${statsStr.replace(/\n/g, '<br>')}</div>` : ''}
+      <div class="tip-desc">${item.description}</div>
+      <div class="tip-flavor">"${item.flavorText}"</div>
+    `;
+    const rect = el.getBoundingClientRect();
+    tip.style.display = 'block';
+    // Position to the right, or left if too close to edge
+    const left = rect.right + 8;
+    tip.style.left = `${Math.min(left, window.innerWidth - 230)}px`;
+    tip.style.top = `${Math.max(8, rect.top)}px`;
+  }
+
+  private hideItemTooltip(): void {
+    const tip = document.getElementById('item-tooltip');
+    if (tip) tip.style.display = 'none';
+  }
+
   private renderCompactInventory(): HTMLElement {
     const panel = this.el('div', 'inventory-panel');
     panel.innerHTML = '<div class="section-title">Mitarbeiterausstattung</div>';
@@ -773,15 +814,20 @@ export class GameUI {
 
       if (item) {
         slot.classList.add('filled');
-        slot.title = `${item.name}\n${item.description}\n\n${item.flavorText}`;
+        const shortStats = Object.entries(item.stats)
+          .filter(([, v]) => v !== undefined && v !== 0)
+          .map(([, v]) => `+${v}`)
+          .join(' ');
         slot.innerHTML = `
           <span class="equip-slot-icon">${s.icon}</span>
           <span class="equip-slot-label">${s.label}</span>
           <span class="equip-slot-name">${item.name}</span>
+          ${shortStats ? `<span class="equip-slot-stats">${shortStats}</span>` : ''}
         `;
+        slot.addEventListener('mouseenter', () => this.showItemTooltip(slot, item as never));
+        slot.addEventListener('mouseleave', () => this.hideItemTooltip());
       } else {
         slot.classList.add('empty');
-        slot.title = `${s.label} — leer`;
         slot.innerHTML = `
           <span class="equip-slot-icon" style="opacity:0.35">${s.icon}</span>
           <span class="equip-slot-label">${s.label}</span>
@@ -818,8 +864,8 @@ export class GameUI {
     } else {
       for (const item of this.gameState.inventory) {
         const row = this.el('div', 'backpack-item');
-        row.title = `${item.description}\n\n${item.flavorText}`;
 
+        const statsStr = this.formatItemStats(item.stats as never);
         const header = this.el('div', 'backpack-item-header');
         header.innerHTML = `
           <span>${slotIcons[item.slot] ?? '📦'}</span>
@@ -827,11 +873,13 @@ export class GameUI {
           <span class="backpack-item-slot">${slotLabels[item.slot] ?? item.slot}</span>
         `;
 
-        const desc = this.el('div', 'backpack-item-desc');
-        desc.textContent = item.description;
+        const statsEl = this.el('div', 'backpack-item-stats');
+        statsEl.innerHTML = statsStr ? statsStr.replace(/\n/g, ' &nbsp;·&nbsp; ') : '';
 
         row.appendChild(header);
-        row.appendChild(desc);
+        if (statsStr) row.appendChild(statsEl);
+        row.addEventListener('mouseenter', () => this.showItemTooltip(row, item as never));
+        row.addEventListener('mouseleave', () => this.hideItemTooltip());
         backpack.appendChild(row);
       }
     }
