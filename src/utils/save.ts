@@ -1,9 +1,10 @@
 // save.ts — all save/load logic goes through here
 // Never call localStorage directly elsewhere
 
-import type { GameState } from '../core/types';
+import type { GameState, MetaState } from '../core/types';
 
 const SAVE_KEY = 'gemrogue_save';
+const META_KEY = 'gemrogue_meta';
 
 export function saveGame(state: GameState): void {
   try {
@@ -31,4 +32,24 @@ export function deleteSave(): void {
 
 export function hasSave(): boolean {
   return localStorage.getItem(SAVE_KEY) !== null;
+}
+
+export function saveMeta(state: MetaState): void {
+  try {
+    const serialized = JSON.stringify(state);
+    localStorage.setItem(META_KEY, serialized);
+  } catch (e) {
+    console.error('Failed to save meta state:', e);
+  }
+}
+
+export function loadMeta(): MetaState | null {
+  try {
+    const data = localStorage.getItem(META_KEY);
+    if (!data) return null;
+    return JSON.parse(data) as MetaState;
+  } catch (e) {
+    console.error('Failed to load meta state:', e);
+    return null;
+  }
 }

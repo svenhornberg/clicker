@@ -99,6 +99,23 @@ export interface PlayerStats {
 
 export type EquipmentSlots = Record<ItemSlot, Item | null>;
 
+export interface MetaUpgrade {
+  id: string;
+  name: string;
+  description: string;
+  maxLevel: number;
+  costPerLevel: number[];
+  flavorText: string;
+}
+
+export interface MetaState {
+  betriebsjahre: number;            // persistent meta currency
+  upgrades: Record<string, number>; // upgradeId → current level (0 = not unlocked)
+  highestFloorReached: number;
+  totalRuns: number;
+  victories: number;
+}
+
 export interface GameState {
   player: PlayerStats;
   equipment: EquipmentSlots;
@@ -109,7 +126,7 @@ export interface GameState {
   currentRoom: number;
   defeatedMonsters: string[];
   visitedRooms: string[];
-  phase: 'map' | 'combat' | 'loot' | 'shop' | 'rest' | 'printer' | 'gameover' | 'victory';
+  phase: 'map' | 'combat' | 'loot' | 'shop' | 'rest' | 'printer' | 'gameover' | 'victory' | 'meta';
   pendingLoot?: LootResult;
   pendingMonster?: Monster;
   shopItems?: Item[];
@@ -124,9 +141,25 @@ export interface CombatState {
   enemyHp: number;
   round: number;
   log: string[];
-  isPlayerTurn: boolean;
   isOver: boolean;
   playerWon: boolean;
+  // Auto-battle fields
+  slotCooldowns: number[];      // remaining ms per slot (0 = ready to fire)
+  slotMaxCooldowns: number[];   // base cooldown per slot in ms
+  enemyCooldown: number;        // remaining ms until enemy attacks
+  enemyMaxCooldown: number;     // enemy attack interval ms
+  // Trigger gem tracking
+  roundsWithoutAttack: number;  // for "Cast when Overlooked"
+  lastAttackWasMeeting: boolean; // for Post-Meeting-Burst
+  coffeeUsedThisRound: boolean; // for Koffein-Rush
+  dringlichPenaltySlot: number; // -1 if none
+  sysadminProvoked: boolean;
+  bossAbilityUsed: boolean;
+  influencerHealRounds: number;
+  headOfBrandRound: number;
+  ceoSynergyRound: number;
+  // Legacy fields kept for compatibility
+  isPlayerTurn: boolean;
   roundsWithoutPlayerAttack: number;
   postMeetingBurst: boolean;
   ueberstundenTriggered: boolean;
