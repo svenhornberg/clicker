@@ -723,8 +723,12 @@ export class GameUI {
     }
     panel.appendChild(grid);
 
-    // Gem inventory summary
-    if (this.gameState.gemInventory.length > 0) {
+    // Gem inventory summary — show button whenever any gem exists (inventory OR in slots)
+    const totalGems = this.gameState.gemInventory.length +
+      this.gameState.skillSlots.reduce((n, s) =>
+        n + (s.active ? 1 : 0) + s.supports.length + (s.trigger ? 1 : 0), 0);
+
+    if (totalGems > 0) {
       const gemsSum = this.el('div', 'gems-summary');
       gemsSum.innerHTML = `<div class="section-title">Gem-Inventar (${this.gameState.gemInventory.length})</div>`;
 
