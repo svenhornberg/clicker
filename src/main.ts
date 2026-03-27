@@ -33,6 +33,8 @@ import {
   calculateBetriebsjahre,
   applyMetaUpgrades,
   purchaseUpgrade,
+  getHealAfterCombat,
+  getAutoStartEnabled,
 } from './systems/MetaSystem';
 
 // ─── Initial State ────────────────────────────────────────────────────────────
@@ -384,6 +386,11 @@ class GameManager {
     this.runBossesDefeated = 0;
     this.ui.setFloors(this.floors);
     this.setState({ phase: 'map' });
+    // Autopilot meta upgrade: auto-clicker starts automatically
+    if (getAutoStartEnabled(this.metaState)) {
+      this.startAutoClick(1000);
+      this.ui.setAutoClick(true);
+    }
     this.render();
   }
 
@@ -510,12 +517,28 @@ class GameManager {
 
     const monster = this.combatState.enemy;
     const floor = this.state.currentFloor;
-    const loot = generateLoot(monster, floor);
+    const ownedGemIds = [
+      ...this.state.gemInventory.map((g) => g.id),
+      ...this.state.skillSlots.flatMap((s) => [
+        s.active?.id,
+        ...s.supports.map((sg) => sg.id),
+        s.trigger?.id,
+      ].filter(Boolean) as string[]),
+    ];
+    const loot = generateLoot(monster, floor, ownedGemIds);
 
     loot.gold += getGoldBonusPerCombat(this.state);
 
     const newGold = this.state.player.gold + loot.gold;
     const newDefeated = [...this.state.defeatedMonsters, monster.id];
+
+    // Heilung nach Kampf meta upgrade: heal % of max HP after victory
+    const healFraction = getHealAfterCombat(this.metaState);
+    let newPlayer = { ...this.state.player, gold: newGold };
+    if (healFraction > 0) {
+      const healAmount = Math.floor(newPlayer.maxHp * healFraction);
+      newPlayer = { ...newPlayer, hp: Math.min(newPlayer.maxHp, newPlayer.hp + healAmount) };
+    }
 
     this.markRoomVisited(this.state.currentRoom);
 
@@ -523,7 +546,7 @@ class GameManager {
       phase: 'loot',
       pendingLoot: loot,
       pendingMonster: undefined,
-      player: { ...this.state.player, gold: newGold },
+      player: newPlayer,
       defeatedMonsters: newDefeated,
     });
 

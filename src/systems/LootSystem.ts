@@ -4,7 +4,14 @@ import { allItems } from '../data/items';
 import { activeGems, supportGems, triggerGems, allGems } from '../data/gems';
 import { randomInt, randomElement, randomElements, chance } from '../utils/random';
 
-export function generateLoot(monster: Monster, floor: number): LootResult {
+function pickGem(ownedGemIds: string[]): Gem {
+  // Prefer gems the player doesn't already own; fall back to full pool if all owned
+  const unownedPool = allGems.filter((g) => !ownedGemIds.includes(g.id));
+  const pool = unownedPool.length > 0 ? unownedPool : allGems;
+  return { ...randomElement(pool) };
+}
+
+export function generateLoot(monster: Monster, floor: number, ownedGemIds: string[] = []): LootResult {
   const gold = randomInt(
     5 + floor * 2,
     15 + floor * 5
@@ -12,7 +19,7 @@ export function generateLoot(monster: Monster, floor: number): LootResult {
 
   if (monster.isBoss) {
     // Bosses always drop 2 gems + 1 item
-    const gems = randomElements(allGems, 2).map((g) => ({ ...g }));
+    const gems = [pickGem(ownedGemIds), pickGem([...ownedGemIds, pickGem(ownedGemIds).id])];
     const items = randomElements(allItems, 1).map((i) => ({ ...i }));
     return {
       gems,
@@ -27,7 +34,7 @@ export function generateLoot(monster: Monster, floor: number): LootResult {
 
   // 60% chance for 1 gem
   if (chance(0.6)) {
-    gems.push({ ...randomElement(allGems) });
+    gems.push(pickGem(ownedGemIds));
   }
 
   // 30% chance for 1 item

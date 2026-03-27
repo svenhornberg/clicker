@@ -101,6 +101,8 @@ export interface PlayerStats {
 
 export type EquipmentSlots = Record<ItemSlot, Item | null>;
 
+export type MetaCategory = 'survival' | 'combat' | 'economy' | 'progression';
+
 export interface MetaUpgrade {
   id: string;
   name: string;
@@ -108,6 +110,7 @@ export interface MetaUpgrade {
   maxLevel: number;
   costPerLevel: number[];
   flavorText: string;
+  category: MetaCategory;
 }
 
 export interface MetaState {

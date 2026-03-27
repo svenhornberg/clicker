@@ -1101,34 +1101,49 @@
       color: var(--text-muted);
       margin-top: 4px;
     }
+    .meta-top-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+      margin: 16px 0 24px;
+    }
     .meta-currency {
-      font-size: 2em;
+      font-size: 1.6em;
       color: #ffd700;
-      text-align: center;
-      margin: 20px 0 8px;
       font-weight: 800;
     }
     .meta-stats {
-      display: flex; gap: 20px; justify-content: center;
+      display: flex; gap: 16px;
       color: var(--text-muted); font-size: 0.85rem;
-      margin-bottom: 20px;
+    }
+    .meta-category-section {
+      margin-bottom: 28px;
+    }
+    .meta-category-header {
+      font-size: 1.1rem; font-weight: 800;
+      color: var(--text-bright);
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #2a2f45;
     }
     .meta-upgrades-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 16px;
-      margin-bottom: 24px;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 14px;
     }
     .meta-upgrade-card {
       background: #1e2130;
       border: 1px solid #2a2f45;
       border-radius: 8px;
-      padding: 16px;
+      padding: 14px;
       display: flex; flex-direction: column; gap: 6px;
     }
     .meta-upgrade-card.maxed {
       border-color: #ffd700;
-      opacity: 0.7;
+      opacity: 0.75;
+    }
+    .meta-upgrade-name-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px;
     }
     .meta-upgrade-name {
       font-weight: 700; font-size: 0.95rem;
@@ -1137,11 +1152,11 @@
     .meta-upgrade-level-dots {
       display: flex;
       gap: 4px;
-      margin: 4px 0;
+      flex-shrink: 0;
     }
     .meta-upgrade-level-dot {
-      width: 12px;
-      height: 12px;
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
       background: #2a2f45;
     }
@@ -1149,29 +1164,34 @@
       background: #ffd700;
     }
     .meta-upgrade-desc {
-      font-size: 0.82rem; color: var(--text);
+      font-size: 0.83rem; color: var(--text);
+      flex: 1;
     }
     .meta-upgrade-flavor {
       font-size: 0.75rem; color: var(--text-muted);
       font-style: italic;
     }
+    .meta-upgrade-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; margin-top: 4px;
+    }
     .meta-upgrade-cost {
-      font-size: 0.8rem; color: #ffd700;
+      font-size: 0.82rem; color: #ffd700;
       font-weight: 600;
     }
     .meta-upgrade-maxed-badge {
       font-size: 0.75rem; font-weight: 800;
-      color: #ffd700; text-transform: uppercase;
+      color: #4caf50; text-transform: uppercase;
       letter-spacing: 1px;
     }
     .meta-upgrade-btn {
-      margin-top: 4px;
-      padding: 7px 14px;
+      padding: 6px 14px;
       background: var(--accent-blue);
       color: white; border: none;
       border-radius: 4px; cursor: pointer;
       font-size: 0.82rem; font-weight: 600;
       transition: background 0.1s;
+      white-space: nowrap;
     }
     .meta-upgrade-btn:hover { background: #2563eb; }
     .meta-upgrade-btn.disabled {
@@ -1180,7 +1200,7 @@
       cursor: not-allowed;
     }
     .meta-new-run-btn {
-      display: block; margin: 0 auto;
+      display: block; margin: 8px auto 0;
     }
   </style>
 </head>

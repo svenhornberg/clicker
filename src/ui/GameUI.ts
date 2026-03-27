@@ -9,6 +9,7 @@ import type {
   Department,
   MetaState,
   MetaUpgrade,
+  MetaCategory,
 } from '../core/types';
 import { DEPARTMENT_NAMES, ROOM_TYPE_LABELS } from '../data/floors';
 import { getItemShopPrice, getGemShopPrice } from '../systems/LootSystem';
@@ -425,25 +426,31 @@ export class GameUI {
     const header = this.el('div', 'meta-header');
     header.innerHTML = `
       <h1 class="meta-title">🏢 Karriereberatung</h1>
-      <p class="meta-subtitle">Investiere deine Betriebsjahre in permanente Verbesserungen.</p>
+      <p class="meta-subtitle">Permanente Upgrades für alle zukünftigen Runs.</p>
     `;
     wrapper.appendChild(header);
 
+    const topBar = this.el('div', 'meta-top-bar');
     const currencyEl = this.el('div', 'meta-currency');
     currencyEl.textContent = `⏳ ${metaState.betriebsjahre} Betriebsjahre`;
-    wrapper.appendChild(currencyEl);
-
     const statsEl = this.el('div', 'meta-stats');
     statsEl.innerHTML = `
       <span>Runs: ${metaState.totalRuns}</span>
       <span>Höchste Etage: ${metaState.highestFloorReached}</span>
       <span>Siege: ${metaState.victories}</span>
     `;
-    wrapper.appendChild(statsEl);
+    topBar.appendChild(currencyEl);
+    topBar.appendChild(statsEl);
+    wrapper.appendChild(topBar);
 
-    const grid = this.el('div', 'meta-upgrades-grid');
+    const categories: { key: MetaCategory; label: string }[] = [
+      { key: 'survival', label: '❤️ Überleben' },
+      { key: 'combat',   label: '⚔️ Angriff' },
+      { key: 'economy',  label: '💰 Wirtschaft' },
+      { key: 'progression', label: '🚀 Fortschritt' },
+    ];
 
-    for (const upgrade of availableUpgrades) {
+    const buildUpgradeCard = (upgrade: MetaUpgrade): HTMLElement => {
       const currentLevel = metaState.upgrades[upgrade.id] ?? 0;
       const isMaxed = currentLevel >= upgrade.maxLevel;
       const nextCost = isMaxed ? null : upgrade.costPerLevel[currentLevel];
@@ -451,17 +458,17 @@ export class GameUI {
 
       const card = this.el('div', `meta-upgrade-card${isMaxed ? ' maxed' : ''}`);
 
-      // Level dots
+      const nameRow = this.el('div', 'meta-upgrade-name-row');
+      const nameEl = this.el('div', 'meta-upgrade-name');
+      nameEl.textContent = upgrade.name;
       const dotsEl = this.el('div', 'meta-upgrade-level-dots');
       for (let i = 0; i < upgrade.maxLevel; i++) {
         const dot = this.el('div', `meta-upgrade-level-dot${i < currentLevel ? ' filled' : ''}`);
         dotsEl.appendChild(dot);
       }
-
-      const nameEl = this.el('div', 'meta-upgrade-name');
-      nameEl.textContent = upgrade.name;
-      card.appendChild(nameEl);
-      card.appendChild(dotsEl);
+      nameRow.appendChild(nameEl);
+      nameRow.appendChild(dotsEl);
+      card.appendChild(nameRow);
 
       const descEl = this.el('div', 'meta-upgrade-desc');
       descEl.textContent = upgrade.description;
@@ -473,15 +480,14 @@ export class GameUI {
 
       if (isMaxed) {
         const maxedBadge = this.el('div', 'meta-upgrade-maxed-badge');
-        maxedBadge.textContent = 'MAX';
+        maxedBadge.textContent = '✓ MAX';
         card.appendChild(maxedBadge);
       } else {
+        const footer = this.el('div', 'meta-upgrade-footer');
         const costEl = this.el('div', 'meta-upgrade-cost');
-        costEl.textContent = `${nextCost} Betriebsjahre`;
-        card.appendChild(costEl);
-
+        costEl.textContent = `⏳ ${nextCost}`;
         const btn = this.el('button', `meta-upgrade-btn${canAffordIt ? '' : ' disabled'}`);
-        btn.textContent = canAffordIt ? 'Upgraden' : 'Zu teuer';
+        btn.textContent = canAffordIt ? 'Kaufen' : 'Zu teuer';
         btn.disabled = !canAffordIt;
         if (canAffordIt) {
           const upgradeId = upgrade.id;
@@ -489,16 +495,33 @@ export class GameUI {
             this.onAction('purchase-upgrade', { upgradeId });
           });
         }
-        card.appendChild(btn);
+        footer.appendChild(costEl);
+        footer.appendChild(btn);
+        card.appendChild(footer);
       }
 
-      grid.appendChild(card);
+      return card;
+    };
+
+    for (const cat of categories) {
+      const upgrades = availableUpgrades.filter((u) => u.category === cat.key);
+      if (upgrades.length === 0) continue;
+
+      const section = this.el('div', 'meta-category-section');
+      const catHeader = this.el('div', 'meta-category-header');
+      catHeader.textContent = cat.label;
+      section.appendChild(catHeader);
+
+      const grid = this.el('div', 'meta-upgrades-grid');
+      for (const upgrade of upgrades) {
+        grid.appendChild(buildUpgradeCard(upgrade));
+      }
+      section.appendChild(grid);
+      wrapper.appendChild(section);
     }
 
-    wrapper.appendChild(grid);
-
     const newRunBtn = this.el('button', 'continue-btn big-btn meta-new-run-btn');
-    newRunBtn.textContent = '▶ Neuer Versuch';
+    newRunBtn.textContent = '▶ Neuer Versuch starten';
     newRunBtn.addEventListener('click', () => this.onAction('new-game'));
     wrapper.appendChild(newRunBtn);
 

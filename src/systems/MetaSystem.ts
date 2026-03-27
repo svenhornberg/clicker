@@ -34,10 +34,10 @@ export function applyMetaUpgrades(baseGameState: GameState, metaState: MetaState
   let state = { ...baseGameState };
   let player = { ...state.player };
 
-  // +20 Max-HP per level of Kaffee-Toleranz
+  // +25 Max-HP per level of Mehr-Leben (meta_kaffee_toleranz)
   const kaffeeLvl = getUpgrade(metaState, 'meta_kaffee_toleranz');
   if (kaffeeLvl > 0) {
-    const bonus = kaffeeLvl * 20;
+    const bonus = kaffeeLvl * 25;
     player.maxHp += bonus;
     player.hp += bonus;
   }
@@ -154,4 +154,14 @@ export function getNetworkingGoldBonus(metaState: MetaState): number {
 export function getBossHpMultiplier(metaState: MetaState): number {
   const lvl = getUpgrade(metaState, 'meta_krisenfest');
   return Math.max(0.5, 1 - lvl * 0.1);
+}
+
+// Returns heal fraction after combat victory (0 = no heal, 0.15 per level)
+export function getHealAfterCombat(metaState: MetaState): number {
+  return getUpgrade(metaState, 'meta_heilung') * 0.15;
+}
+
+// Returns true if auto-clicker should start automatically at run start
+export function getAutoStartEnabled(metaState: MetaState): boolean {
+  return getUpgrade(metaState, 'meta_auto_start') >= 1;
 }
