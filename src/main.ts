@@ -151,7 +151,8 @@ class GameManager {
         this.ui.update(this.state);
       }
 
-      this.ui.render(this.combatState);
+      // Only patch dynamic values — never rebuild the DOM during combat
+      this.ui.updateCombat(this.combatState);
 
       if (this.combatState.isOver) {
         this.stopCombatLoop();
@@ -425,7 +426,7 @@ class GameManager {
   private doPlayerAttackManual(slotIndex: number) {
     if (!this.combatState || this.combatState.isOver) return;
     this.combatState = playerAttackManual(slotIndex, this.state, this.combatState, this.metaState);
-    this.render();
+    this.ui.updateCombat(this.combatState);
     if (this.combatState.isOver) {
       this.stopCombatLoop();
       this.handleCombatEnd();

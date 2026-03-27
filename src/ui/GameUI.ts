@@ -203,24 +203,18 @@ export class GameUI {
     this.container.appendChild(wrapper);
   }
 
+  // Called once when entering combat — builds persistent DOM structure
   renderCombat(combatState: CombatState): void {
     const enemy = combatState.enemy;
     const dept = enemy.department;
     const color = DEPT_COLORS[dept];
 
     const wrapper = this.el('div', 'combat-wrapper');
+    wrapper.dataset.combatRoot = '1';
 
     // Enemy panel
     const enemyPanel = this.el('div', 'enemy-panel');
     enemyPanel.style.borderColor = color;
-
-    const enemyHpPct = Math.max(0, (combatState.enemyHp / enemy.maxHp) * 100);
-
-    // Enemy attack timer bar
-    const enemyCdPct = combatState.enemyMaxCooldown > 0
-      ? Math.max(0, Math.min(100, (1 - combatState.enemyCooldown / combatState.enemyMaxCooldown) * 100))
-      : 0;
-
     enemyPanel.innerHTML = `
       <div class="enemy-header">
         <span class="enemy-icon">${getMonsterIcon(enemy.id)}</span>
@@ -229,13 +223,13 @@ export class GameUI {
         <span class="enemy-dept">${DEPARTMENT_NAMES[dept]}</span>
       </div>
       <div class="hp-bar-container">
-        <div class="hp-bar" style="width:${enemyHpPct}%;background:${color}"></div>
-        <span class="hp-text">${combatState.enemyHp}/${enemy.maxHp}</span>
+        <div class="hp-bar" id="enemy-hp-bar" style="width:100%;background:${color}"></div>
+        <span class="hp-text" id="enemy-hp-text">${combatState.enemyHp}/${enemy.maxHp}</span>
       </div>
       <div class="enemy-attack-timer">
         <span class="attack-timer-label">Angriff in:</span>
         <div class="skill-slot-cooldown">
-          <div class="skill-slot-cooldown-fill${enemyCdPct >= 90 ? ' ready' : ''}" style="width:${enemyCdPct}%;background:#ef4444aa"></div>
+          <div class="skill-slot-cooldown-fill" id="enemy-cd-bar" style="width:0%;background:#ef4444aa"></div>
         </div>
       </div>
       ${enemy.specialAbilityName
@@ -252,110 +246,158 @@ export class GameUI {
 
     // Player status
     const playerPanel = this.el('div', 'player-panel');
-    const playerHpPct = Math.max(
-      0,
-      (combatState.playerHp / this.gameState.player.maxHp) * 100
-    );
     playerPanel.innerHTML = `
       <div class="player-header">
         <span>Du (Etage ${this.gameState.currentFloor})</span>
         <span class="gold-display">💰 ${this.gameState.player.gold}</span>
       </div>
       <div class="hp-bar-container">
-        <div class="hp-bar player-hp-bar" style="width:${playerHpPct}%"></div>
-        <span class="hp-text">${combatState.playerHp}/${this.gameState.player.maxHp}</span>
+        <div class="hp-bar player-hp-bar" id="player-hp-bar" style="width:100%"></div>
+        <span class="hp-text" id="player-hp-text">${combatState.playerHp}/${this.gameState.player.maxHp}</span>
       </div>
     `;
     wrapper.appendChild(playerPanel);
 
-    // Combat log (last 5 entries)
+    // Skill buttons (built once, persistent)
+    const skillsEl = this.el('div', 'combat-skills');
+    skillsEl.innerHTML = '<div class="skills-title">Skill-Slots:</div>';
+
+    this.gameState.skillSlots.forEach((slot, idx) => {
+      if (!slot.active) return;
+      const gem = slot.active;
+      const tags = gem.tags?.join(', ') ?? '';
+      const gemIcon = gem.icon ?? GEM_ROLE_ICONS[gem.role] ?? '🔷';
+
+      const btn = this.el('button', 'skill-btn');
+      btn.dataset.slotIndex = String(idx);
+      btn.innerHTML = `
+        <div class="skill-btn-content">
+          <span class="skill-gem-icon">${gemIcon}</span>
+          <span class="skill-name">${gem.name}</span>
+          <span class="skill-tags">${tags}</span>
+          ${slot.supports.length > 0
+            ? `<span class="skill-supports">${slot.supports.map((s) => `${s.icon ?? '🔶'} ${s.name}`).join(' + ')}</span>`
+            : ''}
+          ${slot.trigger ? `<span class="skill-trigger">${slot.trigger.icon ?? '⚡'} ${slot.trigger.name}</span>` : ''}
+          <span class="skill-dmg">~${gem.effectValue * gem.level} dmg</span>
+        </div>
+        <div class="skill-slot-cooldown">
+          <div class="skill-slot-cooldown-fill" id="slot-cd-${idx}" style="width:100%"></div>
+        </div>
+      `;
+      btn.addEventListener('click', () => this.onAction('player-attack', { slotIndex: idx }));
+      skillsEl.appendChild(btn);
+    });
+
+    const autoBtn = this.el('button', `auto-click-btn${this.autoClickActive ? ' auto-click-on' : ''}`);
+    autoBtn.textContent = this.autoClickActive ? '🤖 Auto: AN' : '🖱️ Auto: AUS';
+    autoBtn.title = 'Auto-Klicker: feuert alle 1s einen zufälligen Slot';
+    autoBtn.addEventListener('click', () => this.onAction('toggle-auto-click'));
+    skillsEl.appendChild(autoBtn);
+
+    const escBtn = this.el('button', 'escape-btn');
+    escBtn.textContent = '🏃 Fliehen';
+    escBtn.addEventListener('click', () => this.onAction('escape'));
+    skillsEl.appendChild(escBtn);
+
+    wrapper.appendChild(skillsEl);
+
+    // Combat log
     const logEl = this.el('div', 'combat-log');
-    const logLines = combatState.log.slice(-5);
-    logEl.innerHTML = logLines
-      .map((line) => `<div class="log-line">${this.escHtml(line)}</div>`)
-      .join('');
+    logEl.id = 'combat-log';
     wrapper.appendChild(logEl);
-
-    // Skill slots with cooldown bars — always shown during combat
-    if (!combatState.isOver) {
-      const skillsEl = this.el('div', 'combat-skills');
-      skillsEl.innerHTML = '<div class="skills-title">Skill-Slots — Klicken zum sofortigen Feuern:</div>';
-
-      this.gameState.skillSlots.forEach((slot, idx) => {
-        if (!slot.active) return;
-
-        const gem = slot.active;
-        const tags = gem.tags?.join(', ') ?? '';
-
-        const cdRemaining = combatState.slotCooldowns[idx] ?? 0;
-        const cdMax = combatState.slotMaxCooldowns[idx] ?? 4000;
-        // Fill progress: 0% = just fired, 100% = ready
-        const fillPct = cdMax > 0 ? Math.max(0, Math.min(100, (1 - cdRemaining / cdMax) * 100)) : 100;
-        const isReady = fillPct >= 90;
-
-        const btn = this.el('button', `skill-btn${isReady ? ' skill-ready' : ''}`);
-        const gemIcon = gem.icon ?? GEM_ROLE_ICONS[gem.role] ?? '🔷';
-        btn.innerHTML = `
-          <div class="skill-btn-content">
-            <span class="skill-gem-icon">${gemIcon}</span>
-            <span class="skill-name">${gem.name}</span>
-            <span class="skill-tags">${tags}</span>
-            ${slot.supports.length > 0
-              ? `<span class="skill-supports">${slot.supports.map((s) => `${s.icon ?? '🔶'} ${s.name}`).join(' + ')}</span>`
-              : ''}
-            ${slot.trigger ? `<span class="skill-trigger">${slot.trigger.icon ?? '⚡'} ${slot.trigger.name}</span>` : ''}
-            <span class="skill-dmg">~${gem.effectValue * gem.level} dmg</span>
-          </div>
-          <div class="skill-slot-cooldown">
-            <div class="skill-slot-cooldown-fill${isReady ? ' ready' : ''}" style="width:${fillPct}%"></div>
-          </div>
-        `;
-        btn.addEventListener('click', () => {
-          this.onAction('player-attack', { slotIndex: idx });
-        });
-        skillsEl.appendChild(btn);
-      });
-
-      // Escape option
-      // Auto-clicker toggle
-      const autoBtn = this.el('button', `auto-click-btn${this.autoClickActive ? ' auto-click-on' : ''}`);
-      autoBtn.textContent = this.autoClickActive ? '🤖 Auto: AN' : '🖱️ Auto: AUS';
-      autoBtn.title = 'Auto-Klicker: feuert alle 1s einen zufälligen Slot';
-      autoBtn.addEventListener('click', () => this.onAction('toggle-auto-click'));
-      skillsEl.appendChild(autoBtn);
-
-      const escBtn = this.el('button', 'escape-btn');
-      escBtn.textContent = '🏃 Fliehen';
-      escBtn.addEventListener('click', () => this.onAction('escape'));
-      skillsEl.appendChild(escBtn);
-
-      wrapper.appendChild(skillsEl);
-    } else {
-      // Combat over
-      const resultEl = this.el('div', 'combat-result');
-      if (combatState.playerWon) {
-        resultEl.innerHTML = `<div class="victory-msg">Gewonnen! 🎉</div>`;
-        const continueBtn = this.el('button', 'continue-btn');
-        continueBtn.textContent = 'Beute einsammeln →';
-        continueBtn.addEventListener('click', () => this.onAction('collect-loot'));
-        resultEl.appendChild(continueBtn);
-      } else {
-        resultEl.innerHTML = `<div class="defeat-msg">Niederlage... 😔</div>`;
-        const gameOverBtn = this.el('button', 'gameover-btn');
-        gameOverBtn.textContent = 'Weiter →';
-        gameOverBtn.addEventListener('click', () => this.onAction('game-over'));
-        resultEl.appendChild(gameOverBtn);
-      }
-      wrapper.appendChild(resultEl);
-    }
 
     // Round info
     const roundEl = this.el('div', 'round-info');
+    roundEl.id = 'combat-round';
     roundEl.textContent = `Runde ${combatState.round}`;
     wrapper.appendChild(roundEl);
 
+    this.container.innerHTML = '';
     this.container.appendChild(wrapper);
+
+    // Initial data patch
+    this.updateCombat(combatState);
   }
+
+  // Called every 100ms — only patches dynamic values, never rebuilds DOM
+  updateCombat(combatState: CombatState): void {
+    const enemy = combatState.enemy;
+
+    // HP bars
+    const enemyHpPct = Math.max(0, (combatState.enemyHp / enemy.maxHp) * 100);
+    const playerHpPct = Math.max(0, (combatState.playerHp / this.gameState.player.maxHp) * 100);
+    const enemyHpBar = document.getElementById('enemy-hp-bar') as HTMLElement | null;
+    const enemyHpText = document.getElementById('enemy-hp-text') as HTMLElement | null;
+    const playerHpBar = document.getElementById('player-hp-bar') as HTMLElement | null;
+    const playerHpText = document.getElementById('player-hp-text') as HTMLElement | null;
+    if (enemyHpBar) enemyHpBar.style.width = `${enemyHpPct}%`;
+    if (enemyHpText) enemyHpText.textContent = `${combatState.enemyHp}/${enemy.maxHp}`;
+    if (playerHpBar) playerHpBar.style.width = `${playerHpPct}%`;
+    if (playerHpText) playerHpText.textContent = `${combatState.playerHp}/${this.gameState.player.maxHp}`;
+
+    // Enemy attack timer
+    const enemyCdPct = combatState.enemyMaxCooldown > 0
+      ? Math.max(0, Math.min(100, (1 - combatState.enemyCooldown / combatState.enemyMaxCooldown) * 100))
+      : 0;
+    const enemyCdBar = document.getElementById('enemy-cd-bar') as HTMLElement | null;
+    if (enemyCdBar) enemyCdBar.style.width = `${enemyCdPct}%`;
+
+    // Slot cooldown bars
+    combatState.slotCooldowns.forEach((cd, idx) => {
+      const cdMax = combatState.slotMaxCooldowns[idx] ?? 4000;
+      const fillPct = cdMax > 0 ? Math.max(0, Math.min(100, (1 - cd / cdMax) * 100)) : 100;
+      const bar = document.getElementById(`slot-cd-${idx}`) as HTMLElement | null;
+      if (bar) {
+        bar.style.width = `${fillPct}%`;
+        bar.classList.toggle('ready', fillPct >= 99);
+      }
+    });
+
+    // Log — only append new lines
+    const logEl = document.getElementById('combat-log') as HTMLElement | null;
+    if (logEl) {
+      const rendered = logEl.querySelectorAll('.log-line').length;
+      const newLines = combatState.log.slice(rendered);
+      newLines.forEach(line => {
+        const div = document.createElement('div');
+        div.className = 'log-line';
+        div.textContent = line;
+        logEl.appendChild(div);
+      });
+      if (newLines.length > 0) logEl.scrollTop = logEl.scrollHeight;
+      // Keep max 30 lines in DOM
+      while (logEl.children.length > 30) logEl.removeChild(logEl.firstChild!);
+    }
+
+    // Round
+    const roundEl = document.getElementById('combat-round') as HTMLElement | null;
+    if (roundEl) roundEl.textContent = `Runde ${combatState.round}`;
+
+    // Combat over — replace skills area with result
+    if (combatState.isOver) {
+      const skillsEl = this.container.querySelector('.combat-skills') as HTMLElement | null;
+      if (skillsEl) {
+        skillsEl.innerHTML = '';
+        const resultEl = this.el('div', 'combat-result');
+        if (combatState.playerWon) {
+          resultEl.innerHTML = `<div class="victory-msg">Gewonnen! 🎉</div>`;
+          const continueBtn = this.el('button', 'continue-btn');
+          continueBtn.textContent = 'Beute einsammeln →';
+          continueBtn.addEventListener('click', () => this.onAction('collect-loot'));
+          resultEl.appendChild(continueBtn);
+        } else {
+          resultEl.innerHTML = `<div class="defeat-msg">Niederlage... 😔</div>`;
+          const gameOverBtn = this.el('button', 'gameover-btn');
+          gameOverBtn.textContent = 'Game Over';
+          gameOverBtn.addEventListener('click', () => this.onAction('game-over'));
+          resultEl.appendChild(gameOverBtn);
+        }
+        skillsEl.appendChild(resultEl);
+      }
+    }
+  }
+
 
   renderMeta(metaState: MetaState, availableUpgrades: MetaUpgrade[]): void {
     this.container.innerHTML = '';
@@ -1019,10 +1061,4 @@ export class GameUI {
     return el;
   }
 
-  private escHtml(str: string): string {
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
 }

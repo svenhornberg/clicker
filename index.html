@@ -800,11 +800,9 @@
       display: flex; align-items: center; gap: 10px;
       flex-wrap: wrap; width: 100%;
     }
-    .skill-btn.skill-ready {
-      border-color: var(--accent-green);
-    }
-    .skill-btn.skill-ready:hover {
-      border-color: #86efac;
+    /* Cooldown bar turns green when ready — no border flash */
+    .skill-slot-cooldown-fill.ready {
+      background: linear-gradient(90deg, #276749, #48bb78) !important;
     }
     .enemy-attack-timer {
       display: flex; align-items: center; gap: 8px;
