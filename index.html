@@ -198,32 +198,212 @@
       margin-top: 4px;
     }
 
-    /* ── Inventory Panel ──────────────────────────────────────────────────── */
+    /* ── Character Equipment Screen (Diablo-style paper doll) ─────────────── */
     .inventory-panel {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 12px;
     }
-    .equip-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-      gap: 6px;
-      margin-top: 8px;
+
+    /* Two-column layout: doll left, backpack right */
+    .char-screen {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-top: 10px;
     }
-    .equip-cell {
-      background: var(--bg-mid);
+
+    /* ── Paper Doll container ── */
+    .char-doll {
+      position: relative;
+      width: 280px;
+      height: 380px;
+      flex-shrink: 0;
+      background: linear-gradient(160deg, #f0f4fa 0%, #e8ecf4 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      /* subtle grid lines like a corporate org chart background */
+      background-image:
+        linear-gradient(rgba(180,195,220,0.18) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(180,195,220,0.18) 1px, transparent 1px),
+        linear-gradient(160deg, #f0f4fa 0%, #e8ecf4 100%);
+      background-size: 24px 24px, 24px 24px, 100% 100%;
+    }
+
+    /* Silhouette figure in the center */
+    .char-silhouette {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 5rem;
+      line-height: 1;
+      pointer-events: none;
+      user-select: none;
+      opacity: 0.18;
+      filter: grayscale(1);
+    }
+
+    /* Employee ID card label overlay */
+    .char-id-label {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, 70px);
+      background: #fff;
       border: 1px solid var(--border);
       border-radius: 4px;
-      padding: 6px;
-      text-align: center;
-      font-size: 0.72rem;
+      padding: 3px 10px;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      pointer-events: none;
+      white-space: nowrap;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     }
-    .equip-cell.equipped { border-color: var(--accent-blue); }
-    .equip-cell.empty-slot { opacity: 0.5; }
-    .equip-icon { display: block; font-size: 1.2rem; }
-    .equip-name { display: block; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .equip-name.empty { color: var(--text-muted); }
+
+    /* ── Individual Equipment Slot ── */
+    .equip-slot {
+      position: absolute;
+      width: 80px;
+      height: 70px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      text-align: center;
+      font-size: 0.62rem;
+      cursor: default;
+      transition: box-shadow 0.15s, border-color 0.15s, background 0.15s;
+      padding: 4px 3px;
+      gap: 2px;
+      z-index: 2;
+    }
+
+    .equip-slot.empty {
+      background: rgba(255,255,255,0.55);
+      border: 2px dashed var(--border);
+      color: var(--text-muted);
+    }
+
+    .equip-slot.filled {
+      background: rgba(255,255,255,0.92);
+      border: 2px solid var(--accent-blue);
+      color: var(--text);
+      box-shadow: 0 0 0 3px rgba(43,108,176,0.13), 0 2px 8px rgba(43,108,176,0.12);
+    }
+
+    .equip-slot.filled:hover {
+      box-shadow: 0 0 0 4px rgba(43,108,176,0.22), 0 4px 14px rgba(43,108,176,0.18);
+      background: rgba(235,240,255,0.98);
+    }
+
+    .equip-slot-icon {
+      font-size: 1.5rem;
+      line-height: 1;
+      display: block;
+    }
+
+    .equip-slot-label {
+      font-size: 0.58rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      display: block;
+    }
+
+    .equip-slot-name {
+      font-size: 0.6rem;
+      font-weight: 600;
+      color: var(--accent-blue);
+      display: block;
+      max-width: 74px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+    }
+
+    /* Slot positions */
+    .equip-slot[data-slot="helm"]    { top: 2%;  left: 50%; transform: translateX(-50%); }
+    .equip-slot[data-slot="weapon"]  { top: 30%; left: 2%; }
+    .equip-slot[data-slot="offhand"] { top: 30%; right: 2%; }
+    .equip-slot[data-slot="armor"]   { top: 38%; left: 50%; transform: translateX(-50%); }
+    .equip-slot[data-slot="gloves"]  { top: 62%; left: 2%; }
+    .equip-slot[data-slot="shoes"]   { top: 62%; right: 2%; }
+    .equip-slot[data-slot="amulet"]  { top: 72%; left: 50%; transform: translateX(-50%); }
+    .equip-slot[data-slot="ring1"]   { bottom: 4%; left: 18%; transform: translateX(-50%); }
+    .equip-slot[data-slot="ring2"]   { bottom: 4%; right: 18%; transform: translateX(50%); }
+
+    /* ── Backpack / unequipped item list ── */
+    .char-backpack {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+
+    .char-backpack-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .backpack-item {
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 7px 9px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 0.7rem;
+    }
+
+    .backpack-item-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .backpack-item-slot {
+      font-size: 0.58rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent-blue);
+      background: rgba(43,108,176,0.08);
+      border-radius: 3px;
+      padding: 1px 5px;
+    }
+
+    .backpack-item-desc {
+      color: var(--text-muted);
+      font-size: 0.64rem;
+      line-height: 1.35;
+    }
+
+    .backpack-empty {
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-style: italic;
+      padding: 10px 0;
+      text-align: center;
+    }
+
     .gems-summary { margin-top: 10px; }
     .manage-gems-btn {
       margin-top: 6px;

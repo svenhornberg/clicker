@@ -734,38 +734,112 @@ export class GameUI {
 
   private renderCompactInventory(): HTMLElement {
     const panel = this.el('div', 'inventory-panel');
-    panel.innerHTML = '<div class="section-title">Ausrüstung</div>';
+    panel.innerHTML = '<div class="section-title">Mitarbeiterausstattung</div>';
 
-    const slots: Array<{ key: string; label: string }> = [
-      { key: 'helm', label: '🪖' },
-      { key: 'weapon', label: '⚔️' },
-      { key: 'offhand', label: '☕' },
-      { key: 'armor', label: '🧥' },
-      { key: 'gloves', label: '🧤' },
-      { key: 'shoes', label: '👟' },
-      { key: 'amulet', label: '📿' },
-      { key: 'ring1', label: '💍' },
-      { key: 'ring2', label: '💍' },
+    // ── Slot definitions ─────────────────────────────────────────────────────
+    const slots: Array<{ key: string; icon: string; label: string }> = [
+      { key: 'helm',    icon: '🎧', label: 'Kopf' },
+      { key: 'weapon',  icon: '⌨️', label: 'Waffe' },
+      { key: 'offhand', icon: '☕', label: 'Offhand' },
+      { key: 'armor',   icon: '👔', label: 'Rüstung' },
+      { key: 'gloves',  icon: '🖱️', label: 'Handschuhe' },
+      { key: 'shoes',   icon: '👟', label: 'Schuhe' },
+      { key: 'amulet',  icon: '📎', label: 'Amulett' },
+      { key: 'ring1',   icon: '🪪', label: 'Ring 1' },
+      { key: 'ring2',   icon: '🪪', label: 'Ring 2' },
     ];
 
-    const grid = this.el('div', 'equip-grid');
+    // ── Two-column layout: doll + backpack ──────────────────────────────────
+    const charScreen = this.el('div', 'char-screen');
+
+    // ── Left: paper doll ────────────────────────────────────────────────────
+    const doll = this.el('div', 'char-doll');
+
+    // Silhouette figure
+    const silhouette = this.el('div', 'char-silhouette');
+    silhouette.textContent = '🧑‍💼';
+    doll.appendChild(silhouette);
+
+    // Subtle employee-ID watermark label
+    const idLabel = this.el('div', 'char-id-label');
+    idLabel.textContent = 'Mitarbeiter-Ausweis';
+    doll.appendChild(idLabel);
+
+    // Place each equip slot absolutely around the silhouette
     for (const s of slots) {
       const item = this.gameState.equipment[s.key as keyof typeof this.gameState.equipment];
-      const cell = this.el('div', 'equip-cell');
-      cell.title = item ? `${item.name}\n${item.description}` : s.key;
-      cell.innerHTML = `<span class="equip-icon">${s.label}</span>`;
-      if (item) {
-        cell.classList.add('equipped');
-        cell.innerHTML += `<span class="equip-name">${item.name}</span>`;
-      } else {
-        cell.classList.add('empty-slot');
-        cell.innerHTML += `<span class="equip-name empty">—</span>`;
-      }
-      grid.appendChild(cell);
-    }
-    panel.appendChild(grid);
+      const slot = this.el('div', 'equip-slot');
+      slot.dataset.slot = s.key;
 
-    // Gem inventory summary — show button whenever any gem exists (inventory OR in slots)
+      if (item) {
+        slot.classList.add('filled');
+        slot.title = `${item.name}\n${item.description}\n\n${item.flavorText}`;
+        slot.innerHTML = `
+          <span class="equip-slot-icon">${s.icon}</span>
+          <span class="equip-slot-label">${s.label}</span>
+          <span class="equip-slot-name">${item.name}</span>
+        `;
+      } else {
+        slot.classList.add('empty');
+        slot.title = `${s.label} — leer`;
+        slot.innerHTML = `
+          <span class="equip-slot-icon" style="opacity:0.35">${s.icon}</span>
+          <span class="equip-slot-label">${s.label}</span>
+        `;
+      }
+
+      doll.appendChild(slot);
+    }
+
+    charScreen.appendChild(doll);
+
+    // ── Right: backpack (unequipped items from inventory) ────────────────────
+    const backpack = this.el('div', 'char-backpack');
+
+    const slotLabels: Record<string, string> = {
+      helm: 'Kopf', weapon: 'Waffe', offhand: 'Offhand',
+      armor: 'Rüstung', gloves: 'Handschuhe', shoes: 'Schuhe',
+      amulet: 'Amulett', ring1: 'Ring 1', ring2: 'Ring 2',
+    };
+    const slotIcons: Record<string, string> = {
+      helm: '🎧', weapon: '⌨️', offhand: '☕',
+      armor: '👔', gloves: '🖱️', shoes: '👟',
+      amulet: '📎', ring1: '🪪', ring2: '🪪',
+    };
+
+    const bpTitle = this.el('div', 'char-backpack-title');
+    bpTitle.textContent = `📦 Rucksack (${this.gameState.inventory.length})`;
+    backpack.appendChild(bpTitle);
+
+    if (this.gameState.inventory.length === 0) {
+      const empty = this.el('div', 'backpack-empty');
+      empty.textContent = 'Rucksack leer — mehr Überstunden nötig.';
+      backpack.appendChild(empty);
+    } else {
+      for (const item of this.gameState.inventory) {
+        const row = this.el('div', 'backpack-item');
+        row.title = `${item.description}\n\n${item.flavorText}`;
+
+        const header = this.el('div', 'backpack-item-header');
+        header.innerHTML = `
+          <span>${slotIcons[item.slot] ?? '📦'}</span>
+          <span>${item.name}</span>
+          <span class="backpack-item-slot">${slotLabels[item.slot] ?? item.slot}</span>
+        `;
+
+        const desc = this.el('div', 'backpack-item-desc');
+        desc.textContent = item.description;
+
+        row.appendChild(header);
+        row.appendChild(desc);
+        backpack.appendChild(row);
+      }
+    }
+
+    charScreen.appendChild(backpack);
+    panel.appendChild(charScreen);
+
+    // ── Gem inventory summary ────────────────────────────────────────────────
     const totalGems = this.gameState.gemInventory.length +
       this.gameState.skillSlots.reduce((n, s) =>
         n + (s.active ? 1 : 0) + s.supports.length + (s.trigger ? 1 : 0), 0);
