@@ -204,15 +204,7 @@ export class GameUI {
     `;
     wrapper.appendChild(playerPanel);
 
-    // Combat log
-    const logEl = this.el('div', 'combat-log');
-    const logLines = combatState.log.slice(-10);
-    logEl.innerHTML = logLines
-      .map((line) => `<div class="log-line">${this.escHtml(line)}</div>`)
-      .join('');
-    wrapper.appendChild(logEl);
-
-    // Skill buttons
+    // Skill buttons (above log so they stay in place)
     if (!combatState.isOver && combatState.isPlayerTurn) {
       const skillsEl = this.el('div', 'combat-skills');
       skillsEl.innerHTML = '<div class="skills-title">Dein Zug — wähle eine Attacke:</div>';
@@ -274,6 +266,16 @@ export class GameUI {
     const roundEl = this.el('div', 'round-info');
     roundEl.textContent = `Runde ${combatState.round}`;
     wrapper.appendChild(roundEl);
+
+    // Combat log (after buttons so it scrolls independently)
+    const logEl = this.el('div', 'combat-log');
+    const logLines = combatState.log.slice(-20);
+    logEl.innerHTML = logLines
+      .map((line) => `<div class="log-line">${this.escHtml(line)}</div>`)
+      .join('');
+    wrapper.appendChild(logEl);
+    // Scroll to bottom
+    logEl.scrollTop = logEl.scrollHeight;
 
     this.container.appendChild(wrapper);
   }
