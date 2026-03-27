@@ -696,6 +696,145 @@
     ::-webkit-scrollbar-track { background: var(--bg-mid); }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: #3e4268; }
+
+    /* ── Cooldown Bars ────────────────────────────────────────────────────── */
+    .skill-slot-cooldown {
+      height: 6px;
+      background: #1a1a2e;
+      border-radius: 3px;
+      margin-top: 4px;
+      overflow: hidden;
+    }
+    .skill-slot-cooldown-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4fc3f7, #00e5ff);
+      transition: width 0.1s linear;
+      border-radius: 3px;
+    }
+    .skill-slot-cooldown-fill.ready {
+      background: linear-gradient(90deg, #66bb6a, #a5d6a7);
+    }
+    .skill-btn-content {
+      display: flex; align-items: center; gap: 10px;
+      flex-wrap: wrap; width: 100%;
+    }
+    .skill-btn.skill-ready {
+      border-color: var(--accent-green);
+    }
+    .skill-btn.skill-ready:hover {
+      border-color: #86efac;
+    }
+    .enemy-attack-timer {
+      display: flex; align-items: center; gap: 8px;
+      margin: 6px 0;
+    }
+    .attack-timer-label {
+      font-size: 0.7rem; color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .enemy-attack-timer .skill-slot-cooldown {
+      flex: 1; margin-top: 0;
+    }
+
+    /* ── Meta Screen / Karriereberatung ───────────────────────────────────── */
+    .meta-screen {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .meta-header {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .meta-title {
+      font-size: 2rem; font-weight: 900;
+      color: var(--text-bright);
+    }
+    .meta-subtitle {
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .meta-currency {
+      font-size: 2em;
+      color: #ffd700;
+      text-align: center;
+      margin: 20px 0 8px;
+      font-weight: 800;
+    }
+    .meta-stats {
+      display: flex; gap: 20px; justify-content: center;
+      color: var(--text-muted); font-size: 0.85rem;
+      margin-bottom: 20px;
+    }
+    .meta-upgrades-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .meta-upgrade-card {
+      background: #1e2130;
+      border: 1px solid #2a2f45;
+      border-radius: 8px;
+      padding: 16px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .meta-upgrade-card.maxed {
+      border-color: #ffd700;
+      opacity: 0.7;
+    }
+    .meta-upgrade-name {
+      font-weight: 700; font-size: 0.95rem;
+      color: var(--text-bright);
+    }
+    .meta-upgrade-level-dots {
+      display: flex;
+      gap: 4px;
+      margin: 4px 0;
+    }
+    .meta-upgrade-level-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #2a2f45;
+    }
+    .meta-upgrade-level-dot.filled {
+      background: #ffd700;
+    }
+    .meta-upgrade-desc {
+      font-size: 0.82rem; color: var(--text);
+    }
+    .meta-upgrade-flavor {
+      font-size: 0.75rem; color: var(--text-muted);
+      font-style: italic;
+    }
+    .meta-upgrade-cost {
+      font-size: 0.8rem; color: #ffd700;
+      font-weight: 600;
+    }
+    .meta-upgrade-maxed-badge {
+      font-size: 0.75rem; font-weight: 800;
+      color: #ffd700; text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .meta-upgrade-btn {
+      margin-top: 4px;
+      padding: 7px 14px;
+      background: var(--accent-blue);
+      color: white; border: none;
+      border-radius: 4px; cursor: pointer;
+      font-size: 0.82rem; font-weight: 600;
+      transition: background 0.1s;
+    }
+    .meta-upgrade-btn:hover { background: #2563eb; }
+    .meta-upgrade-btn.disabled {
+      background: var(--bg-mid);
+      color: var(--text-muted);
+      cursor: not-allowed;
+    }
+    .meta-new-run-btn {
+      display: block; margin: 0 auto;
+    }
   </style>
 </head>
 <body>

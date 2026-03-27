@@ -5,13 +5,16 @@ import type {
   SkillSlot,
   EquipmentSlots,
   Monster,
+  MetaState,
 } from './core/types';
 import { GameUI } from './ui/GameUI';
 import { createFloors } from './data/floors';
 import { activeGems } from './data/gems';
+import { allMetaUpgrades } from './data/metaUpgrades';
 import {
-  initCombat,
-  playerAttack,
+  initCombatAuto,
+  tickCombat,
+  playerAttackManual,
   enemyTurn,
   checkCombatEnd,
 } from './systems/CombatSystem';
@@ -31,8 +34,6 @@ import {
   applyMetaUpgrades,
   purchaseUpgrade,
 } from './systems/MetaSystem';
-import type { MetaState } from './core/types';
-import { allMetaUpgrades } from './data/metaUpgrades';
 
 // ─── Initial State ────────────────────────────────────────────────────────────
 
@@ -51,7 +52,6 @@ function makeEmptyEquipment(): EquipmentSlots {
 }
 
 function makeInitialSkillSlots(): SkillSlot[] {
-  // Start with 3 slots; first slot pre-loaded with buzzword gem
   const buzzword = { ...activeGems.find((g) => g.id === 'gem_buzzword_active')! };
   const meeting = { ...activeGems.find((g) => g.id === 'gem_meeting_active')! };
   return [
@@ -89,20 +89,20 @@ function createNewGame(): GameState {
 
 class GameManager {
   private state: GameState;
-  private metaState: MetaState;
   private combatState: CombatState | null = null;
   private floors = createFloors();
   private ui: GameUI;
-  private bossesDefeatedThisRun = 0;
+  private metaState: MetaState;
+  private runFloorsCleared = 0;
+  private runBossesDefeated = 0;
+  private combatInterval: number | null = null;
 
   constructor() {
     this.metaState = loadMeta() ?? createDefaultMetaState();
     const saved = hasSave() ? loadGame() : null;
     this.state = saved ?? createNewGame();
-
     this.ui = new GameUI(this.state, this.handleAction.bind(this));
     this.ui.setFloors(this.floors);
-
     this.render();
   }
 
@@ -114,6 +114,10 @@ class GameManager {
     saveGame(this.state);
   }
 
+  private saveMetaState() {
+    saveMeta(this.metaState);
+  }
+
   private setState(partial: Partial<GameState>) {
     this.state = { ...this.state, ...partial };
     this.ui.update(this.state);
@@ -122,7 +126,80 @@ class GameManager {
 
   private render() {
     this.ui.update(this.state);
-    this.ui.render(this.combatState ?? undefined);
+    if (this.state.phase === 'meta') {
+      this.ui.renderMeta(this.metaState, allMetaUpgrades);
+    } else {
+      this.ui.render(this.combatState ?? undefined);
+    }
+  }
+
+  // ─── Combat Loop ──────────────────────────────────────────────────────────
+
+  startCombatLoop() {
+    if (this.combatInterval) clearInterval(this.combatInterval);
+    this.combatInterval = setInterval(() => {
+      if (this.state.phase !== 'combat' || !this.combatState) return;
+      this.combatState = tickCombat(this.combatState, this.state, this.metaState, 100);
+
+      if (this.combatState.playerHp !== this.state.player.hp) {
+        this.state = {
+          ...this.state,
+          player: { ...this.state.player, hp: this.combatState.playerHp },
+        };
+        this.ui.update(this.state);
+      }
+
+      this.ui.render(this.combatState);
+
+      if (this.combatState.isOver) {
+        this.stopCombatLoop();
+        this.handleCombatEnd();
+      }
+    }, 100) as unknown as number;
+  }
+
+  stopCombatLoop() {
+    if (this.combatInterval) {
+      clearInterval(this.combatInterval);
+      this.combatInterval = null;
+    }
+  }
+
+  private handleCombatEnd() {
+    if (!this.combatState) return;
+
+    if (this.combatState.playerWon) {
+      if (this.combatState.enemy.isBoss) {
+        this.runBossesDefeated++;
+      }
+      this.render();
+    } else {
+      this.endRun(false);
+      this.setState({ phase: 'gameover' });
+      this.render();
+    }
+  }
+
+  private endRun(won: boolean) {
+    const finalHpPercent = (this.state.player.hp / this.state.player.maxHp) * 100;
+    const earned = calculateBetriebsjahre(
+      this.runFloorsCleared,
+      this.runBossesDefeated,
+      won,
+      finalHpPercent
+    );
+
+    this.metaState = {
+      ...this.metaState,
+      betriebsjahre: this.metaState.betriebsjahre + earned,
+      totalRuns: this.metaState.totalRuns + 1,
+      victories: won ? this.metaState.victories + 1 : this.metaState.victories,
+      highestFloorReached: Math.max(this.metaState.highestFloorReached, this.state.currentFloor),
+    };
+    this.saveMetaState();
+
+    this.runFloorsCleared = 0;
+    this.runBossesDefeated = 0;
   }
 
   private handleAction(action: string, data?: unknown): void {
@@ -138,7 +215,7 @@ class GameManager {
         break;
 
       case 'player-attack':
-        this.doPlayerAttack(d?.slotIndex as number);
+        this.doPlayerAttackManual(d?.slotIndex as number);
         break;
 
       case 'enemy-turn':
@@ -206,51 +283,32 @@ class GameManager {
         break;
 
       case 'game-over':
+        this.endRun(false);
         this.setState({ phase: 'gameover' });
         this.render();
         break;
 
-      case 'go-to-meta': {
-        const won = this.state.phase === 'victory';
-        const finalHpPct = this.state.player.hp / this.state.player.maxHp;
-        const earned = calculateBetriebsjahre(
-          this.state.currentFloor - 1,
-          this.bossesDefeatedThisRun,
-          won,
-          finalHpPct
-        );
-        this.metaState = {
-          ...this.metaState,
-          betriebsjahre: this.metaState.betriebsjahre + earned,
-          highestFloorReached: Math.max(this.metaState.highestFloorReached, this.state.currentFloor),
-          totalRuns: this.metaState.totalRuns + 1,
-          victories: this.metaState.victories + (won ? 1 : 0),
-        };
-        saveMeta(this.metaState);
+      case 'go-to-meta':
         this.setState({ phase: 'meta' });
-        this.ui.renderMeta(this.metaState, allMetaUpgrades);
+        this.render();
         break;
-      }
 
-      case 'purchase-meta-upgrade': {
-        const upgradeId = d?.upgradeId as string;
-        if (upgradeId) {
-          this.metaState = purchaseUpgrade(this.metaState, upgradeId);
-          saveMeta(this.metaState);
-          this.ui.renderMeta(this.metaState, allMetaUpgrades);
-        }
+      case 'purchase-upgrade':
+        this.purchaseMetaUpgrade(d?.upgradeId as string);
         break;
-      }
     }
   }
 
   private newGame() {
+    this.stopCombatLoop();
     deleteSave();
     this.floors = createFloors();
-    this.bossesDefeatedThisRun = 0;
-    const base = createNewGame();
-    this.state = applyMetaUpgrades(base, this.metaState);
+    let freshState = createNewGame();
+    freshState = applyMetaUpgrades(freshState, this.metaState);
+    this.state = freshState;
     this.combatState = null;
+    this.runFloorsCleared = 0;
+    this.runBossesDefeated = 0;
     this.ui.setFloors(this.floors);
     this.setState({ phase: 'map' });
     this.render();
@@ -304,16 +362,20 @@ class GameManager {
 
   private startCombat(monster: Monster) {
     const stats = calculateStats(this.state);
-    this.combatState = initCombat(monster, stats);
+    this.combatState = initCombatAuto(monster, stats, this.metaState);
     this.setState({ phase: 'combat', pendingMonster: monster });
     this.render();
+    this.startCombatLoop();
   }
 
-  private doPlayerAttack(slotIndex: number) {
-    if (!this.combatState) return;
-
-    this.combatState = playerAttack(slotIndex, this.state, this.combatState);
+  private doPlayerAttackManual(slotIndex: number) {
+    if (!this.combatState || this.combatState.isOver) return;
+    this.combatState = playerAttackManual(slotIndex, this.state, this.combatState, this.metaState);
     this.render();
+    if (this.combatState.isOver) {
+      this.stopCombatLoop();
+      this.handleCombatEnd();
+    }
   }
 
   private doEnemyTurn() {
@@ -327,7 +389,6 @@ class GameManager {
     );
     this.combatState = checkCombatEnd(this.combatState);
 
-    // Sync player HP back
     this.setState({
       player: {
         ...this.state.player,
@@ -336,6 +397,7 @@ class GameManager {
     });
 
     if (this.combatState.isOver && !this.combatState.playerWon) {
+      this.endRun(false);
       this.setState({ phase: 'gameover' });
     }
 
@@ -345,13 +407,11 @@ class GameManager {
   private doEscape() {
     const stats = calculateStats(this.state);
     if (chance(stats.escapeChance / 100)) {
-      // Successful escape
-      // Don't mark as cleared, just go back to map
+      this.stopCombatLoop();
       this.combatState = null;
       this.setState({ phase: 'map', pendingMonster: undefined });
       this.render();
     } else {
-      // Failed escape — enemy gets a free hit
       if (this.combatState && this.state.pendingMonster) {
         const stats2 = calculateStats(this.state);
         this.combatState = enemyTurn(
@@ -363,6 +423,8 @@ class GameManager {
         this.setState({ player: { ...this.state.player, hp: updatedHp } });
 
         if (this.combatState.isOver && !this.combatState.playerWon) {
+          this.stopCombatLoop();
+          this.endRun(false);
           this.setState({ phase: 'gameover' });
         }
         this.render();
@@ -374,14 +436,11 @@ class GameManager {
     if (!this.combatState) return;
 
     const monster = this.combatState.enemy;
-    if (monster.isBoss) this.bossesDefeatedThisRun++;
     const floor = this.state.currentFloor;
     const loot = generateLoot(monster, floor);
 
-    // Add gold bonus from amulet
     loot.gold += getGoldBonusPerCombat(this.state);
 
-    // Give gold immediately
     const newGold = this.state.player.gold + loot.gold;
     const newDefeated = [...this.state.defeatedMonsters, monster.id];
 
@@ -422,13 +481,11 @@ class GameManager {
     const newEquipment = { ...this.state.equipment };
     const slot = item.slot;
 
-    // Put old item in inventory if any
     const oldItem = newEquipment[slot];
     const newInventory = [...this.state.inventory];
     if (oldItem) newInventory.push(oldItem);
 
     newEquipment[slot] = item;
-
     const newLootItems = loot.items.filter((_, i) => i !== itemIndex);
 
     this.setState({
@@ -449,14 +506,15 @@ class GameManager {
     const floor = this.getCurrentFloor();
     if (!floor) return;
 
-    // Check if all rooms cleared
     const allCleared = floor.rooms.every(
       (r) => this.state.visitedRooms.includes(r.id)
     );
 
     if (allCleared) {
-      // Advance to next floor
+      this.runFloorsCleared++;
+
       if (this.state.currentFloor >= 10) {
+        this.endRun(true);
         this.setState({ phase: 'victory' });
         return;
       }
@@ -464,7 +522,6 @@ class GameManager {
       this.floors[nextFloor - 1].rooms[0].available = true;
       this.setState({ currentFloor: nextFloor, currentRoom: 0 });
     } else {
-      // Unlock next available rooms
       this.unlockNextRooms();
     }
   }
@@ -477,7 +534,6 @@ class GameManager {
     const currentIdx = this.state.currentRoom;
     const cleared = this.state.visitedRooms;
 
-    // Linear progression: unlock next uncleared room
     for (let i = 0; i < rooms.length; i++) {
       if (!cleared.includes(rooms[i].id)) {
         rooms[i].available = true;
@@ -485,7 +541,6 @@ class GameManager {
       }
     }
 
-    // Always keep current room and already-unlocked rooms accessible
     rooms.forEach((r, i) => {
       if (i <= currentIdx || cleared.includes(r.id)) {
         r.available = true;
@@ -505,7 +560,6 @@ class GameManager {
       this.setState({ visitedRooms: newVisited });
     }
 
-    // Unlock next room
     if (roomIndex + 1 < floor.rooms.length) {
       floor.rooms[roomIndex + 1].available = true;
     }
@@ -580,12 +634,12 @@ class GameManager {
       this.setState({ player: { ...this.state.player, hp: newHp } });
 
       if (newHp <= 0) {
+        this.endRun(false);
         this.setState({ phase: 'gameover' });
         this.render();
         return;
       }
 
-      // Show damage result via loot screen with no items
       this.setState({
         phase: 'loot',
         pendingLoot: {
@@ -621,7 +675,6 @@ class GameManager {
     if (!slot) return;
 
     if (role === 'active') {
-      // Swap old active gem back to inventory
       const newGemInv = [...this.state.gemInventory];
       if (slot.active) newGemInv.push(slot.active);
       slot.active = gem;
@@ -629,7 +682,6 @@ class GameManager {
       this.setState({ skillSlots: newSlots, gemInventory: newGemInv });
     } else if (role === 'support') {
       if (slot.supports.length >= 3) {
-        // Swap out first support
         const newGemInv = [...this.state.gemInventory];
         newGemInv.push(slot.supports[0]);
         slot.supports[0] = gem;
@@ -659,7 +711,6 @@ class GameManager {
     const [g1, g2] = pairs[pairIndex];
     const fused = fuseGems(g1, g2);
 
-    // Remove g1, g2 from inventory and add fused
     const newInv = [...this.state.gemInventory];
     const idx1 = newInv.findIndex((g) => g === g1);
     if (idx1 !== -1) newInv.splice(idx1, 1);
@@ -668,6 +719,12 @@ class GameManager {
     newInv.push(fused);
 
     this.setState({ gemInventory: newInv });
+    this.render();
+  }
+
+  private purchaseMetaUpgrade(upgradeId: string) {
+    this.metaState = purchaseUpgrade(this.metaState, upgradeId);
+    this.saveMetaState();
     this.render();
   }
 }
@@ -692,7 +749,7 @@ function showTitleScreen(onStart: (continueGame: boolean) => void) {
       </div>
       <div class="title-buttons">
         ${hasSaveGame
-          ? `<button id="btn-continue" class="title-btn primary">▶ Weiterspielen</button>`
+          ? '<button id="btn-continue" class="title-btn primary">▶ Weiterspielen</button>'
           : ''}
         <button id="btn-new" class="title-btn ${hasSaveGame ? 'secondary' : 'primary'}">
           ${hasSaveGame ? '🔄 Neues Spiel' : '▶ Spiel starten'}
