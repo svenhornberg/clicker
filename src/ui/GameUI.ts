@@ -352,14 +352,23 @@ export class GameUI {
     const enemyCdBar = document.getElementById('enemy-cd-bar') as HTMLElement | null;
     if (enemyCdBar) enemyCdBar.style.width = `${enemyCdPct}%`;
 
-    // Slot cooldown bars
+    // Slot cooldown bars + button state
     combatState.slotCooldowns.forEach((cd, idx) => {
       const cdMax = combatState.slotMaxCooldowns[idx] ?? 4000;
       const fillPct = cdMax > 0 ? Math.max(0, Math.min(100, (1 - cd / cdMax) * 100)) : 100;
+      const isReady = cd === 0;
+
       const bar = document.getElementById(`slot-cd-${idx}`) as HTMLElement | null;
       if (bar) {
         bar.style.width = `${fillPct}%`;
-        bar.classList.toggle('ready', fillPct >= 99);
+        bar.classList.toggle('ready', isReady);
+      }
+
+      // Grey out button when on cooldown
+      const btn = this.container.querySelector<HTMLButtonElement>(`[data-slot-index="${idx}"]`);
+      if (btn) {
+        btn.classList.toggle('skill-on-cd', !isReady);
+        btn.disabled = !isReady;
       }
     });
 

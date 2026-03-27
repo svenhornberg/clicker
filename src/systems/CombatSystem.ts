@@ -550,9 +550,10 @@ export function playerAttackManual(
 ): CombatState {
   if (combatState.isOver) return combatState;
 
-  // Allow manual fire at any time — just reset the cooldown after firing
+  // Only fire if the slot is off cooldown
+  if ((combatState.slotCooldowns[slotIndex] ?? 0) > 0) return combatState;
+
   let s = fireSlot(slotIndex, combatState, gameState, metaState);
-  // Reset this slot's cooldown
   s = {
     ...s,
     slotCooldowns: s.slotCooldowns.map((cd, i) => i === slotIndex ? s.slotMaxCooldowns[i] : cd),
